@@ -9,6 +9,87 @@ void initDS3231(void)
 	initI2C();
 }
 
+uint8_t ds3231GetCentury(void)
+{
+	return century;
+}
+
+uint8_t ds3231SetYear(uint8_t year)
+{
+	if(year > 99)
+		return 1;
+
+	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
+	i2cWrite(DS3231_REGISTER_YEAR);
+	i2cWrite(decToBcd(year));
+	i2cStop();
+
+	return 0;
+}
+
+uint8_t ds3231GetYear(void)
+{
+	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
+	i2cWrite(DS3231_REGISTER_YEAR);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t year = i2cReadNak();
+
+	i2cStop();
+	return bcdToDec(year);
+}
+
+uint8_t ds3231SetMonth(month_t month)
+{
+	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
+	i2cWrite(DS3231_REGISTER_MONTH_CENTURY);
+	i2cWrite(decToBcd((uint8_t) month)); // this also sets the century bit to 0
+	i2cStop();
+
+	return 0; // not needed
+}
+
+month_t ds3231GetMonth(void)
+{
+	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
+	i2cWrite(DS3231_REGISTER_MONTH_CENTURY);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+
+	uint8_t month = i2cReadNak();
+	i2cStop();
+
+	if(month & DS3231_CENTURY_INDICATOR) // entered a new century
+	{
+		century++;
+		month &= ~(DS3231_CENTURY_INDICATOR); // this forces the century bit clear whilst keeping the correct month
+		ds3231SetMonth((month_t) month); 
+	}
+
+	return (month_t) bcdToDec(month);
+}
+
+uint8_t ds3231SetDate(uint8_t date)
+{
+	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
+	i2cWrite(DS3231_REGISTER_DATE);
+	i2cWrite(decToBcd(date));
+	i2cStop();
+
+	return 0; // not needed
+}
+
+uint8_t ds3231GetDate(void)
+{
+	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
+	i2cWrite(DS3231_REGISTER_DATE);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+
+	uint8_t date = i2cReadNak();
+	i2cStop();
+
+	return bcdToDec(date);
+}
+
+
 uint8_t ds3231SetDay(day_t day)
 {
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
@@ -23,9 +104,10 @@ day_t ds3231GetDay(void)
 {
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_DAY);
-	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
 
 	uint8_t day = i2cReadNak();
+
 	i2cStop();
 	return (day_t) bcdToDec(day);
 }
