@@ -9,15 +9,51 @@ void initDS3231(void)
 	initI2C();
 }
 
+/*
+   checks to see if the CENTURY_INDICATOR bit is set in the MONTH register. If it is then a new century has been entered so the currentCentury counter is incremented.
+   This function should be called at the start / end of every other function that interacts with the DS3231, otherwise turning a century will be missed. However if it is unlikely that the DS3231 will experience a change in century, this function can be ignored and removed from the rest of the library code 
+ */
+static void checkCentury(void)
+{
+	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
+	i2cWrite(DS3231_REGISTER_MONTH_CENTURY);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+
+	uint8_t month = i2cReadNak();
+	i2cStop();
+	if(month & DS3231_CENTURY_INDICATOR) // entered a new century
+	{
+		century++;
+		month &= ~(DS3231_CENTURY_INDICATOR); // this forces the century bit clear whilst keeping the correct month
+		ds3231SetMonth((month_t) month); 
+	}
+}
+
+/*
+	Returns: the current century of the DS3231, e.g.
+		     0 = 20xx, 1 = 21xx etc.
+*/
 uint8_t ds3231GetCentury(void)
 {
+	checkCentury();
 	return century;
+}
+
+/*
+   Sets the starting century for the DS3231. The DS3231 doesn't store the century
+   itself, so the library handles it
+*/
+void ds3231SetCentury(uint8_t cent)
+{
+	century = cent;
 }
 
 uint8_t ds3231SetYear(uint8_t year)
 {
 	if(year > 99)
 		return 1;
+
+	checkCentury();
 
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_YEAR);
@@ -29,6 +65,7 @@ uint8_t ds3231SetYear(uint8_t year)
 
 uint8_t ds3231GetYear(void)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_YEAR);
 	i2cRepeatStart(DS3231_ADDRESS_READ);
@@ -50,6 +87,7 @@ uint8_t ds3231SetMonth(month_t month)
 
 month_t ds3231GetMonth(void)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_MONTH_CENTURY);
 	i2cRepeatStart(DS3231_ADDRESS_READ);
@@ -57,18 +95,12 @@ month_t ds3231GetMonth(void)
 	uint8_t month = i2cReadNak();
 	i2cStop();
 
-	if(month & DS3231_CENTURY_INDICATOR) // entered a new century
-	{
-		century++;
-		month &= ~(DS3231_CENTURY_INDICATOR); // this forces the century bit clear whilst keeping the correct month
-		ds3231SetMonth((month_t) month); 
-	}
-
 	return (month_t) bcdToDec(month);
 }
 
 uint8_t ds3231SetDate(uint8_t date)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_DATE);
 	i2cWrite(decToBcd(date));
@@ -79,6 +111,7 @@ uint8_t ds3231SetDate(uint8_t date)
 
 uint8_t ds3231GetDate(void)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_DATE);
 	i2cRepeatStart(DS3231_ADDRESS_READ);
@@ -92,6 +125,7 @@ uint8_t ds3231GetDate(void)
 
 uint8_t ds3231SetDay(day_t day)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_DAY);
 	i2cWrite(decToBcd((uint8_t) day));
@@ -102,6 +136,7 @@ uint8_t ds3231SetDay(day_t day)
 
 day_t ds3231GetDay(void)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_DAY);
 	i2cRepeatStart(DS3231_ADDRESS_READ);
@@ -122,6 +157,7 @@ uint8_t ds3231SetHour(bool_t is12HourMode, bool_t isPM, uint8_t hours)
 	if(is12HourMode == FALSE && hours > 23) // invalid condition
 		return 2;
 
+	checkCentury();
 	uint8_t hoursValue = 0; // used to build the byte to send
 	if(is12HourMode == TRUE) // set special bits for 12 hr mode
 	{
@@ -143,6 +179,7 @@ uint8_t ds3231SetHour(bool_t is12HourMode, bool_t isPM, uint8_t hours)
 
 uint8_t ds3231GetHour(void)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set the register pointer
 	i2cWrite(DS3231_REGISTER_HOURS);
 	i2cRepeatStart(DS3231_ADDRESS_READ); // now read the hours register
@@ -157,6 +194,7 @@ uint8_t ds3231SetMinute(uint8_t minutes)
 	if(minutes > 59) // invalid condition
 		return 1;
 
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_MINUTES);
 	i2cWrite(decToBcd(minutes)); // write to register
@@ -167,6 +205,7 @@ uint8_t ds3231SetMinute(uint8_t minutes)
 
 uint8_t ds3231GetMinute(void)
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_MINUTES);
 
@@ -182,6 +221,7 @@ uint8_t ds3231SetSecond(uint8_t seconds)
 	if(seconds > 59)
 		return 1; // invalid condition
 
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_SECONDS);
 	i2cWrite(decToBcd(seconds)); // write to register
@@ -192,6 +232,7 @@ uint8_t ds3231SetSecond(uint8_t seconds)
 
 uint8_t ds3231GetSecond()
 {
+	checkCentury();
 	i2cStart(DS3231_ADDRESS_WRITE); // set register pointer
 	i2cWrite(DS3231_REGISTER_SECONDS);
 
@@ -205,13 +246,23 @@ uint8_t ds3231GetSecond()
 
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
+
+/*
+   used to convert normal decimal numbers to BCD numbers
+	Param: val -> the decimal value
+	Returns: the BCD representation of val
+*/
 uint8_t decToBcd(uint8_t val)
 {
   return (val / 10 * 16) + (val % 10);
 }
 
-// Convert binary coded decimal to normal decimal numbers
-
+/*
+   used to convery binary coded decimal to standard
+   decimal numbers
+	Param: val -> the BCD value
+	Returns: the standard decimal representation of val
+*/
 uint8_t bcdToDec(uint8_t val)
 {
   return (val / 16 * 10) + (val % 16);

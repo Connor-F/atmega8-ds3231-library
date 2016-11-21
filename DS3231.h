@@ -83,6 +83,8 @@ static uint8_t century = 0; // year 20xx has a century of 0
 void initDS3231(void);
 
 // time setting / getting functions
+static void checkCentury(void);
+
 uint8_t ds3231SetSecond(uint8_t);
 uint8_t ds3231GetSecond(void);
 
@@ -104,6 +106,7 @@ month_t ds3231GetMonth(void);
 uint8_t ds3231SetYear(uint8_t);
 uint8_t ds3231GetYear(void);
 
+void ds3231SetCentury(uint8_t);
 uint8_t ds3231GetCentury(void);
 
 // utility functions
