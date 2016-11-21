@@ -6,6 +6,8 @@
 #define DS3231_ADDRESS_READ 0b11010001
 #define DS3231_ADDRESS_WRITE 0b11010000
 
+#define DS3231_OPERATION_SUCCESS 0 // this is returned if a function ran without errors
+
 // general time keeping registers
 #define DS3231_REGISTER_SECONDS 0
 #define DS3231_REGISTER_MINUTES 0x1
@@ -83,6 +85,7 @@ static uint8_t century = 0; // year 20xx has a century of 0
 void initDS3231(void);
 
 // time setting / getting functions
+static void setRegisterPointer(uint8_t);
 static void checkCentury(void);
 
 uint8_t ds3231SetSecond(uint8_t);
@@ -108,6 +111,12 @@ uint8_t ds3231GetYear(void);
 
 void ds3231SetCentury(uint8_t);
 uint8_t ds3231GetCentury(void);
+
+uint8_t ds3231SetFullDate(day_t, uint8_t, month_t, uint8_t, uint8_t);
+uint8_t ds3231SetTime(uint8_t, uint8_t, uint8_t);
+
+// alarm functions
+void ds3231SetAlarm1(day_t, uint8_t, uint8_t, uint8_t, uint8_t);
 
 // utility functions
 uint8_t decToBcd(uint8_t);
