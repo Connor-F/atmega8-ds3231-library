@@ -1,6 +1,8 @@
 #include "DS3231.h"
 #include "i2cMaster.h"
 
+#include "USART.h"
+
 /*
    sets up i2c bus
 */
@@ -11,12 +13,58 @@ void initDS3231(void)
 
 void ds3231SetAlarm1(day_t day, uint8_t date, uint8_t hour, uint8_t minute, uint8_t second)
 {
+	// alarm testing code
+	// 1. set A1 mask bits for seconds (A1M2, A1M3, A1M4 all set)
+	// 2. write the seconds value we want to match to A1 seconds register
+	// 3. enable A1 with A1IE
+	// 4. enable interrupts with INTCN
+	// 5. clear A1F flag
+
+	// 1.
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
+	i2cWriteThenStop(decToBcd(10));
+
+	// 2.
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
+	i2cWriteThenStop(0 | DS3231_ALARM1_A1M2_BIT);
+
+	// 2. 
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
+	i2cWriteThenStop(0 | DS3231_ALARM1_A1M3_BIT);
+	
+	// 2.
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
+	i2cWriteThenStop(0 | DS3231_ALARM1_A1M4_BIT);
+
+	// 3. & 4.
+	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
+	uint8_t controlReg = i2cReadNak();
+	i2cStop();
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+	i2cWriteThenStop(controlReg | DS3231_A1IE_BIT | DS3231_INTCN_BIT);
+
+	// 5.
+	ds3231ClearAlarmFlag(ALARM_1);
+}
+
+uint8_t ds3231ClearAlarmFlag(alarm_t alarm)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_STATUS);
+	uint8_t statusReg = i2cReadNak();
+	i2cStop();
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+	if(alarm == ALARM_1)
+		i2cWriteThenStop(statusReg & ~(DS3231_A1F_BIT));
+	else 
+		i2cWriteThenStop(statusReg & ~(DS3231_A2F_BIT));
+
+	return DS3231_OPERATION_SUCCESS;
 }
 
 uint8_t ds3231SetTime(uint8_t hour, uint8_t minute, uint8_t second)
 {
 	uint8_t error = DS3231_OPERATION_SUCCESS;
-	error |= ds3231SetHour(hour);
+	error |= ds3231SetHour(0,0,hour); // fix
 	error |= ds3231SetMinute(minute);
 	error |= ds3231SetSecond(second);
 
@@ -45,7 +93,7 @@ uint8_t ds3231SetFullDate(day_t day, uint8_t date, month_t month, uint8_t year, 
 }
 
 /*
-   checks to see if the CENTURY_INDICATOR bit is set in the MONTH register. If it is then a new century has been entered so the currentCentury counter is incremented.
+   checks to see if the CENTURY_BIT bit is set in the MONTH register. If it is then a new century has been entered so the currentCentury counter is incremented.
    This function should be called at the start / end of every other function that interacts with the DS3231, otherwise turning a century will be missed. However if it is unlikely that the DS3231 will experience a change in century, this function can be ignored and removed from the rest of the library code 
  */
 static void checkCentury(void)
@@ -55,10 +103,10 @@ static void checkCentury(void)
 
 	uint8_t month = i2cReadNak();
 	i2cStop();
-	if(month & DS3231_CENTURY_INDICATOR) // entered a new century
+	if(month & DS3231_CENTURY_BIT) // entered a new century
 	{
 		century++;
-		month &= ~(DS3231_CENTURY_INDICATOR); // this forces the century bit clear whilst keeping the correct month
+		month &= ~(DS3231_CENTURY_BIT); // this forces the century bit clear whilst keeping the correct month
 		ds3231SetMonth((month_t) month); 
 	}
 }
@@ -118,8 +166,8 @@ uint8_t ds3231SetMonth(month_t month)
 month_t ds3231GetMonth(void)
 {
 	checkCentury();
-	i2cSetRegisterPointer(DS3231_REGISTER_MONTH_CENTURY);
-	i2cRepeatStart(DS3231_ADDRESS_WRITE, DS3231_ADDRESS_READ);
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_MONTH_CENTURY);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
 
 	uint8_t month = i2cReadNak();
 	i2cStop();
@@ -184,9 +232,9 @@ uint8_t ds3231SetHour(bool_t is12HourMode, bool_t isPM, uint8_t hours)
 	uint8_t hoursValue = 0; // used to build the byte to send
 	if(is12HourMode == TRUE) // set special bits for 12 hr mode
 	{
-		hoursValue |= DS3231_HOUR_MODE_12; // bit 6 indicates the mode
+		hoursValue |= DS3231_HOUR_MODE_12_BIT; // bit 6 indicates the mode
 		if(isPM == TRUE)
-			hoursValue |= DS3231_PM_INDICATOR;
+			hoursValue |= DS3231_PM_BIT;
 	}
 
 	hoursValue |= decToBcd(hours);
@@ -244,7 +292,6 @@ uint8_t ds3231SetSecond(uint8_t seconds)
 
 	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_SECONDS);
 	i2cWriteThenStop(decToBcd(seconds)); // write to register
-	i2cStop();
 
 	return DS3231_OPERATION_SUCCESS;
 }
