@@ -11,43 +11,312 @@ void initDS3231(void)
 	initI2C();
 }
 
-void ds3231SetAlarm1(day_t day, uint8_t date, uint8_t hour, uint8_t minute, uint8_t second)
+/*
+   sets the global hour mode for the ds3231. The ds3231 offers 2 modes
+   for storing the hours value in the timekeeping registers and alarm registers,
+   these are AM/PM mode (uses 12 hours and a AM/PM indicator bit) and 24 hour mode.
+
+   This should be called before any other if needing to change the mode to AM/PM, as
+   24 hour mode is selected by default
+*/
+void ds3231Use12HourMode(bool use12HourMode)
 {
-	// alarm testing code
-	// 1. set A1 mask bits for seconds (A1M2, A1M3, A1M4 all set)
-	// 2. write the seconds value we want to match to A1 seconds register
-	// 3. enable A1 with A1IE
-	// 4. enable interrupts with INTCN
-	// 5. clear A1F flag
-
-	// 1.
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
-	i2cWriteThenStop(decToBcd(10));
-
-	// 2.
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
-	i2cWriteThenStop(0 | DS3231_ALARM1_A1M2_BIT);
-
-	// 2. 
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
-	i2cWriteThenStop(0 | DS3231_ALARM1_A1M3_BIT);
-	
-	// 2.
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
-	i2cWriteThenStop(0 | DS3231_ALARM1_A1M4_BIT);
-
-	// 3. & 4.
-	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
-	uint8_t controlReg = i2cReadNak();
-	i2cStop();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cWriteThenStop(controlReg | DS3231_A1IE_BIT | DS3231_INTCN_BIT);
-
-	// 5.
-	ds3231ClearAlarmFlag(ALARM_1);
+	is24HourMode = !use12HourMode;
 }
 
-uint8_t ds3231ClearAlarmFlag(alarm_t alarm)
+/*
+   ensures the alarm_t struct passed to set an alarm contains valid combinations of values 
+		Param: alarm -> the alarm the user supplied to be passed to the ds3231
+		Return: DS3231_OPERATION_SUCCESS (0) if the alarm was valid
+	    1 if an invalid alarmNumber was used
+		2 if an invalid trigger was used
+		3 if an invalid second value was used with ALARM1 and A1_SEC_MATCH
+		4 if an invalid second or minute value was used with ALARM1 and A1_MIN_SEC_MATCH
+		5 if an invalid second or minute or hour value was used with ALARM1 and A1_HOUR_MIN_SEC_MATCH
+		6 if an invalid second or minute or hour or day/date value was used with ALARM1 and A1_DAY_DATE_HOUR_MIN_SEC_MATCH
+		7 if an invalid minute was used with ALARM2 and A2_MIN_MATCH
+		8 if an invalid minute or hour was used with ALARM2 and A2_HOUR_MIN_MATCH 
+		9 if an invalid minute or hour or day/date was used with ALARM2 and A2_DAY_DATE_HOUR_MIN_MATCH
+		10 unknown error occurred processing alarm 1
+		11 unknown error occurred processing alarm 2
+		12 unknown error occurred after handling alarm 1 or 2
+*/
+static uint8_t validateAlarm(alarm_t alarm)
+{
+	// invalid alarm number
+	if(alarm.alarmNumber < 0 || alarm.alarmNumber >= ALARM_NUMBER_T_MAX)
+		return 1;
+	// invalid trigger
+	if(alarm.trigger < 0 || alarm.trigger >= ALARM_TRIGGER_T_MAX)
+		return 2;
+
+
+	if(alarm.alarmNumber == ALARM_1)
+	{
+		switch(alarm.trigger)
+		{
+			case A1_EVERY_SEC: // no values are needed in this case
+				return DS3231_OPERATION_SUCCESS;
+
+			case A1_SEC_MATCH:
+				if(alarm.second < 60)
+					return DS3231_OPERATION_SUCCESS;
+				return 3;
+
+			case A1_MIN_SEC_MATCH:
+				if(alarm.second < 60 && alarm.minute < 60)
+					return DS3231_OPERATION_SUCCESS;
+				return 4;
+
+			case A1_HOUR_MIN_SEC_MATCH:
+				if(alarm.second < 60 && alarm.minute < 60)
+					if((is24HourMode && alarm.hour < 24) || (!is24HourMode && alarm.hour < 13))
+						return DS3231_OPERATION_SUCCESS;
+				return 5;
+
+			case A1_DAY_DATE_HOUR_MIN_SEC_MATCH:
+				if(alarm.second < 60 && alarm.minute < 60)
+				{
+					if((is24HourMode && alarm.hour < 24) || (!is24HourMode && alarm.hour < 13))
+					{
+						if(alarm.useDay && (alarm.dayDate > 0 && alarm.dayDate < DAY_T_MAX))
+						{
+							return DS3231_OPERATION_SUCCESS;
+						}
+						else if(!alarm.useDay && (alarm.dayDate < 32))
+						{
+							return DS3231_OPERATION_SUCCESS;
+						}
+					}
+				}
+				return 6;
+
+			default: 
+				return 10;
+		}
+	}
+	else // check alarm 2 combinations
+	{
+		switch(alarm.trigger)
+		{
+			case A2_EVERY_MIN: // no values needed in this case
+				return DS3231_OPERATION_SUCCESS;
+
+			case A2_MIN_MATCH:
+				if(alarm.minute < 60)
+					return DS3231_OPERATION_SUCCESS;
+				return 7;
+
+			case A2_HOUR_MIN_MATCH:
+				if(alarm.minute < 60)
+					if((is24HourMode && alarm.hour < 24) || (!is24HourMode && alarm.hour < 13))
+						return DS3231_OPERATION_SUCCESS;
+				return 8;
+
+			case A2_DAY_DATE_HOUR_MIN_MATCH:
+				if(alarm.minute < 60)
+				{
+					if((is24HourMode && alarm.hour < 24) || (!is24HourMode && alarm.hour < 13))
+					{
+						if(alarm.useDay && (alarm.dayDate > 0 && alarm.dayDate < DAY_T_MAX))
+						{
+							return DS3231_OPERATION_SUCCESS;
+						}
+						else if(!alarm.useDay && (alarm.dayDate < 32))
+						{
+							return DS3231_OPERATION_SUCCESS;
+						}
+					}
+				}
+				return 9;
+
+			default:
+				return 11;
+		}
+	}
+
+	return 12;
+}
+
+/*
+   sets an alarm on the ds3231
+		Param: alarm -> the alarm struct that contains all the info needed to set the alarm
+		Return: DS3231_OPERATION_SUCCESS (0) if the alarm was valid
+	    1 if an invalid alarmNumber was used
+		2 if an invalid trigger was used
+		3 if an invalid second value was used with ALARM1 and A1_SEC_MATCH
+		4 if an invalid second or minute value was used with ALARM1 and A1_MIN_SEC_MATCH
+		5 if an invalid second or minute or hour value was used with ALARM1 and A1_HOUR_MIN_SEC_MATCH
+		6 if an invalid second or minute or hour or day/date value was used with ALARM1 and A1_DAY_DATE_HOUR_MIN_SEC_MATCH
+		7 if an invalid minute was used with ALARM2 and A2_MIN_MATCH
+		8 if an invalid minute or hour was used with ALARM2 and A2_HOUR_MIN_MATCH 
+		9 if an invalid minute or hour or day/date was used with ALARM2 and A2_DAY_DATE_HOUR_MIN_MATCH
+		10 unknown error occurred processing alarm 1
+		11 unknown error occurred processing alarm 2
+		12 unknown error occurred after handling alarm 1 or 2
+*/
+uint8_t ds3231SetAlarm(alarm_t alarm)
+{
+	uint8_t error = validateAlarm(alarm);
+	if(error)
+		return error;
+
+	if(alarm.alarmNumber == ALARM_1)
+	{
+		switch(alarm.trigger)
+		{
+			case A1_EVERY_SEC: // needs a1m1, a1m2, a1m3 and a1m4 all set
+				// set a1m1
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M1_BIT));
+				// set a1m2
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M2_BIT));
+				// set a1m3
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT));
+				// set a1m4
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				break;
+
+			case A1_SEC_MATCH: // needs a1m2, a1m3 and a1m4 set
+				// set seconds
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
+				i2cWriteThenStop(decToBcd(alarm.second));
+				// set a1m2
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M2_BIT));
+				// set a1m3
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT));
+				// set a1m4
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				break;
+
+			case A1_MIN_SEC_MATCH: // needs a1m3 and a1m4 set
+				// set seconds
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
+				i2cWriteThenStop(decToBcd(alarm.second));
+				// set mins
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
+				i2cWriteThenStop(decToBcd(alarm.minute));
+				// set a1m3
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT));
+				// set a1m4
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				break;
+
+			case A1_HOUR_MIN_SEC_MATCH: // needs a1m4 set
+				// set seconds
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
+				i2cWriteThenStop(decToBcd(alarm.second));
+				// set mins
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
+				i2cWriteThenStop(decToBcd(alarm.minute));
+				// set hours
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
+				i2cWriteThenStop(decToBcd(alarm.hour));
+				// set a1m4
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				break;
+
+			case A1_DAY_DATE_HOUR_MIN_SEC_MATCH: // no a1m* bits needed
+				// set seconds
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
+				i2cWriteThenStop(decToBcd(alarm.second));
+				// set mins
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
+				i2cWriteThenStop(decToBcd(alarm.minute));
+				// set hours
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
+				i2cWriteThenStop(decToBcd(alarm.hour));
+
+				// set hours
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
+				if(alarm.useDay)
+					alarm.hour |= DS3231_ALARM_DAY_BIT;
+				i2cWriteThenStop(decToBcd(alarm.dayDate));
+
+				break;
+
+			default: // this should never be reached, here to stop compiler warnings
+				break;
+		}
+	}
+	else // alarm 2
+	{
+		switch(alarm.trigger)
+		{
+			case A2_EVERY_MIN: // needs a2m2, a2m3 and a2m4 set
+				// set a2m2
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M2_BIT));
+				// set a2m3
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M3_BIT));
+				// set a2m4
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT));
+				break;
+
+			case A2_MIN_MATCH: // a2m3 and a2m4 set
+				// set a2m3
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M3_BIT));
+				// set a2m4
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT));
+				// set minutes
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
+				i2cWriteThenStop(decToBcd(alarm.minute));
+				break;
+
+			case A2_HOUR_MIN_MATCH: // a2m4 set
+				// set a2m4
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
+				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT));
+				// set minutes
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
+				i2cWriteThenStop(decToBcd(alarm.minute));
+				// set hours
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
+				i2cWriteThenStop(decToBcd(alarm.hour));
+				break;
+
+			case A2_DAY_DATE_HOUR_MIN_MATCH: // no a2m* bits needed, does need day/date bit set
+				// set minutes
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
+				i2cWriteThenStop(decToBcd(alarm.minute));
+				// set hours
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
+				i2cWriteThenStop(decToBcd(alarm.hour));
+				if(alarm.useDay)
+					alarm.dayDate |= DS3231_ALARM_DAY_BIT;
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_DAY_DATE);
+				i2cWriteThenStop(decToBcd(alarm.dayDate));
+
+				break;
+
+			default: // this should never be reached, here to stop compiler warnings
+				break;
+		}
+	}
+
+	ds3231ClearAlarmFlag(alarm.alarmNumber);
+	return DS3231_OPERATION_SUCCESS;
+}
+
+/*
+   used to reset an alarms flag (that indicates the alarm was triggered)
+		Param: alarm -> the alarm number flag to be reset, e.g. ALARM_1
+		Return: DS3231_OPERATION_SUCCESS (0)
+*/
+uint8_t ds3231ClearAlarmFlag(alarm_number_t alarm)
 {
 	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_STATUS);
 	uint8_t statusReg = i2cReadNak();
@@ -61,10 +330,19 @@ uint8_t ds3231ClearAlarmFlag(alarm_t alarm)
 	return DS3231_OPERATION_SUCCESS;
 }
 
-uint8_t ds3231SetTime(uint8_t hour, uint8_t minute, uint8_t second)
+/*
+   convenience function to set the ds3231 time using a single function
+Param: hour -> the hour to set the ds3231 to
+	   minute -> the minute to set the ds3231 to
+	   second -> the second to set the ds3231 to
+	   isPM -> used to indicate whether the hours value should be treated as a PM value
+	   		   this should only be true if 12 hour AM/PM mode is activated and it is a PM value. 
+			   By default 12 hour AM/PM mode is NOT enabled
+*/
+uint8_t ds3231SetTime(uint8_t hour, uint8_t minute, uint8_t second, bool isPM)
 {
 	uint8_t error = DS3231_OPERATION_SUCCESS;
-	error |= ds3231SetHour(0,0,hour); // fix
+	error |= ds3231SetHour(hour, isPM); // fix
 	error |= ds3231SetMinute(minute);
 	error |= ds3231SetSecond(second);
 
@@ -219,21 +497,29 @@ day_t ds3231GetDay(void)
 }
 
 
-// isPM should be TRUE only if 12 hour mode is being used and the time is AM
-// isPM should be FALSE if 24 hour mode is being used or it is PM and 12 hour mode is used
-uint8_t ds3231SetHour(bool_t is12HourMode, bool_t isPM, uint8_t hours)
+/*
+   sets the hours register on the ds3231
+   Param: hours -> the hours value to set the ds3231 to
+   		  isPM -> if using 12 hour mode isPM states whether the hours value
+		  		  represents a PM time (if true) or AM time (if false).
+				  isPM is ignored if 24 hour mode is being used
+   Return: DS3231_OPERATION_SUCCESS (0) if setting the hours worked
+   		   1 if an invalid hours value was supplied for 24 hour mode
+   		   2 if an invalid hours value was supplied for 12 hour mode
+*/
+uint8_t ds3231SetHour(uint8_t hours, bool isPM)
 {
-	if(is12HourMode == TRUE && hours > 12) // invalid condition
+	if(is24HourMode && hours > 23)
 		return 1;
-	if(is12HourMode == FALSE && hours > 23) // invalid condition
+	if(!is24HourMode && hours > 12)
 		return 2;
 
 	checkCentury();
 	uint8_t hoursValue = 0; // used to build the byte to send
-	if(is12HourMode == TRUE) // set special bits for 12 hr mode
+	if(!is24HourMode) // set special bits for 12 hr mode
 	{
 		hoursValue |= DS3231_HOUR_MODE_12_BIT; // bit 6 indicates the mode
-		if(isPM == TRUE)
+		if(isPM)
 			hoursValue |= DS3231_PM_BIT;
 	}
 

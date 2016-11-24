@@ -11,17 +11,21 @@ int main()
 	initDS3231();
 	DDRB |= (0 << PB0);
 
+	ds3231Use12HourMode(false);
 	ds3231SetSecond(7);
 	ds3231SetMinute(59);
-	ds3231SetHour(FALSE, FALSE, 23);
+	ds3231SetHour(23, false);
 	ds3231SetDay(THURSDAY);
 	ds3231SetDate(31);
 	ds3231SetMonth(DEC);
 	ds3231SetYear(99);
 	ds3231SetCentury(0); // century 0 = year 20xx
 
-	ds3231SetAlarm1(1,1,1,1,5);
-
+	alarm_t alarm;
+	alarm.alarmNumber = ALARM_1;
+	alarm.second = 9;
+	alarm.trigger = A1_SEC_MATCH;
+	ds3231SetAlarm(alarm);
 
 	while(1)
 	{

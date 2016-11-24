@@ -2,6 +2,7 @@
 #define GUARD_DS3231_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define DS3231_ADDRESS_READ 0b11010001
 #define DS3231_ADDRESS_WRITE 0b11010000
@@ -33,6 +34,14 @@
 #define DS3231_REGISTER_ALARM2_MINUTES 0xb
 #define DS3231_REGISTER_ALARM2_HOURS 0xc
 #define DS3231_REGISTER_ALARM2_DAY_DATE 0xd
+
+// alarm 2 trigger interval bits
+#define DS3231_ALARM2_A2M2_BIT (1 << 7) // used to signal when an alarm should be triggered (e.g. every second etc.)
+#define DS3231_ALARM2_A2M3_BIT (1 << 7)
+#define DS3231_ALARM2_A2M4_BIT (1 << 7)
+
+// other alarm bits
+#define DS3231_ALARM_DAY_BIT (1 << 6) // used to indicate if an alarm is set for a DAY or DATE
 
 // control register
 #define DS3231_REGISTER_CONTROL 0xe
@@ -78,7 +87,8 @@ typedef enum
 	WEDNESDAY = 4,
 	THURSDAY = 5,
 	FRIDAY = 6,
-	SATURDAY = 7
+	SATURDAY = 7,
+	DAY_T_MAX = 8
 } day_t;
 
 // possible months
@@ -95,30 +105,69 @@ typedef enum
 	SEP = 9,
 	OCT = 10,
 	NOV = 11,
-	DEC = 12
+	DEC = 12,
+	MONTH_T_MAX = 13
 } month_t;
-
-// for readability
-typedef enum
-{
-	FALSE,
-	TRUE
-} bool_t;
 
 // the available alarms of the ds3231
 typedef enum
 {
 	ALARM_1,
-	ALARM_2
+	ALARM_2,
+	ALARM_NUMBER_T_MAX
+} alarm_number_t;
+
+// defines when alarms should be triggered, e.g. when seconds match
+typedef enum
+{
+	//////////////////////////
+	// ALARM1 (A1) triggers //
+	//////////////////////////
+	A1_EVERY_SEC, // triggers every second
+	A1_SEC_MATCH, // triggers when seconds value in ALARM1 seconds register match ds3231 seconds register
+	A1_MIN_SEC_MATCH, // triggers when seconds & min value the ALARM1 seconds & min registers match ds3231 seconds & min registers
+	A1_HOUR_MIN_SEC_MATCH, // triggers when hours, min & seconds value in ALARM1 respective registers match ds3231 hour, min & seconds registers
+	A1_DAY_DATE_HOUR_MIN_SEC_MATCH, // triggers when day/date, hours, min & seconds in ALARM1 register match the values in the ds3231 time & date registers
+	// depending on what is "useDay" is true in the alarm_t used selects whether the alarm triggers on a day or date
+
+	//////////////////////////
+	// ALARM2 (A2) triggers //
+	//////////////////////////
+	A2_EVERY_MIN, // triggers every minute (at 0 seconds of the new minute)
+	A2_MIN_MATCH, // triggers when ALARM2 minute register matches the ds3231 minute register
+	A2_HOUR_MIN_MATCH, // triggers when ALARM2 minute & hour register matches the ds3231 minute & hour registers
+	A2_DAY_DATE_HOUR_MIN_MATCH, // triggers when ALARM2 day/date, hour & min register match the ds3231 registers
+	// depending on what is "useDay" is true in the alarm_t used selects whether the alarm triggers on a day or date
+	ALARM_TRIGGER_T_MAX
+} alarm_trigger_t;
+
+// used to set alarms
+// 
+typedef struct
+{
+	alarm_number_t alarmNumber; // which alarm to set
+	uint8_t second; // the seconds value of the alarm, this is only valid for ALARM_1
+	uint8_t minute; // minutes value of alarm
+	uint8_t hour; // hour value of alarm
+	bool useDay; // if TRUE, then the value in the "dayDate" field is interpreted as the day_t to trigger the alarm
+				   // e.g. THURSDAY.
+				   // if FALSE, then the value in "dayDate" is interpreted as a numerical date value to trigger the alarm
+				   // e.g. 12 (the 12th of the month)
+	uint8_t dayDate; // the day OR date of the alarm (depends on useDay);
+	alarm_trigger_t trigger; // when the alarm will trigger, e.g. on match on mins & seconds
 } alarm_t;
 
+// global variables 
 // used to track the century
 static uint8_t century = 0; // year 20xx has a century of 0
+// used to indicate the hour storing mode, either AM/PM (12 hour mode) or 24 hour mode
+static bool is24HourMode = true;
 
 void initDS3231(void);
 
 // time setting / getting functions
 static void checkCentury(void);
+void ds3231Use12HourMode(bool);
 
 uint8_t ds3231SetSecond(uint8_t);
 uint8_t ds3231GetSecond(void);
@@ -126,7 +175,7 @@ uint8_t ds3231GetSecond(void);
 uint8_t ds3231SetMinute(uint8_t);
 uint8_t ds3231GetMinute(void);
 
-uint8_t ds3231SetHour(bool_t, bool_t, uint8_t);
+uint8_t ds3231SetHour(uint8_t, bool);
 uint8_t ds3231GetHour(void);
 
 uint8_t ds3231SetDay(day_t);
@@ -145,11 +194,12 @@ void ds3231SetCentury(uint8_t);
 uint8_t ds3231GetCentury(void);
 
 uint8_t ds3231SetFullDate(day_t, uint8_t, month_t, uint8_t, uint8_t);
-uint8_t ds3231SetTime(uint8_t, uint8_t, uint8_t);
+uint8_t ds3231SetTime(uint8_t, uint8_t, uint8_t, bool);
 
 // alarm functions
-void ds3231SetAlarm1(day_t, uint8_t, uint8_t, uint8_t, uint8_t);
-uint8_t ds3231ClearAlarmFlag(alarm_t alarm);
+static uint8_t validateAlarm(alarm_t alarm);
+uint8_t ds3231SetAlarm(alarm_t);
+uint8_t ds3231ClearAlarmFlag(alarm_number_t);
 
 // utility functions
 uint8_t decToBcd(uint8_t);
