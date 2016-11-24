@@ -17,7 +17,7 @@ int main()
 	ds3231SetHour(23, false);
 	ds3231SetDay(THURSDAY);
 	ds3231SetDate(31);
-	ds3231SetMonth(DEC);
+	ds3231SetMonth(DECEMBER);
 	ds3231SetYear(99);
 	ds3231SetCentury(0); // century 0 = year 20xx
 
@@ -29,6 +29,9 @@ int main()
 
 	while(1)
 	{
+		uint16_t temp = ds3231GetTemperature();
+		usartTransmitByte((uint8_t) (temp >> 8));
+		usartTransmitByte((uint8_t) temp);
 		//usartTransmitByte(ds3231GetSecond());
 		/*usartTransmitByte(ds3231GetMinute());
 		usartTransmitByte(ds3231GetHour());
@@ -38,9 +41,13 @@ int main()
 		usartTransmitByte(ds3231GetYear());
 		usartTransmitByte(ds3231GetCentury());*/
 
-		//_delay_ms(1000);
+		_delay_ms(3000);
+		ds3231ForceTemperatureUpdate();
+		temp = ds3231GetTemperature();
+		usartTransmitByte((uint8_t) (temp >> 8));
+		usartTransmitByte((uint8_t) temp);
 
-		if(PINB & (1 << PB0))
+		/*if(PINB & (1 << PB0))
 		{
 			continue;
 		}
@@ -48,7 +55,7 @@ int main()
 		{
 			usartTransmitByte(65);
 			ds3231ClearAlarmFlag(ALARM_1);
-		}
+		}*/
 
 	}
 }

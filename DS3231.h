@@ -47,22 +47,24 @@
 #define DS3231_REGISTER_CONTROL 0xe
 
 // control register bits
-#define DS3231_EOSC_BIT (1 << 7)
-#define DS3231_BBQSW_BIT (1 << 6)
-#define DS3231_CONV_BIT (1 << 5)
-#define DS3231_RS2_BIT (1 << 4)
-#define DS3231_RS1_BIT (1 << 3)
-#define DS3231_INTCN_BIT (1 << 2) // enable interrupts
-#define DS3231_A2IE_BIT (1 << 1) // enable alarm 2
-#define DS3231_A1IE_BIT (1 << 0) // enable alarm 1
+#define DS3231_CONTROL_EOSC_BIT (1 << 7)
+#define DS3231_CONTROL_BBQSW_BIT (1 << 6)
+#define DS3231_CONTROL_CONV_BIT (1 << 5)
+#define DS3231_CONTROL_RS2_BIT (1 << 4)
+#define DS3231_CONTROL_RS1_BIT (1 << 3)
+#define DS3231_CONTROL_INTCN_BIT (1 << 2) // enable interrupts
+#define DS3231_CONTROL_A2IE_BIT (1 << 1) // enable alarm 2
+#define DS3231_CONTROL_A1IE_BIT (1 << 0) // enable alarm 1
 
 // status register
 #define DS3231_REGISTER_STATUS 0xf
-#define DS3231_OSF_BIT (1 << 7) // oscillator stop
-#define DS3231_EN32KHZ_BIT (1 << 3) // enable 32KHz square wave output
-#define DS3231_BSY_BIT (1 << 2) // device busy bit
-#define DS3231_A2F_BIT (1 << 1) // alarm 2 triggered flag
-#define DS3231_A1F_BIT (1 << 0) // alarm 1 triggered flag
+
+// status register bits
+#define DS3231_STATUS_OSF_BIT (1 << 7) // oscillator stop
+#define DS3231_STATUS_EN32KHZ_BIT (1 << 3) // enable 32KHz square wave output
+#define DS3231_STATUS_BSY_BIT (1 << 2) // device busy bit
+#define DS3231_STATUS_A2F_BIT (1 << 1) // alarm 2 triggered flag
+#define DS3231_STATUS_A1F_BIT (1 << 0) // alarm 1 triggered flag
 
 // aging register
 #define DS3231_REGISTER_AGING_OFFSET 0x10
@@ -94,18 +96,18 @@ typedef enum
 // possible months
 typedef enum
 {
-	JAN = 1,
-	FEB = 2,
-	MAR = 3,
-	APR = 4,
+	JANUARY = 1,
+	FEBRUARY = 2,
+	MARCH = 3,
+	APRIL = 4,
 	MAY = 5,
-	JUN = 6,
-	JUL = 7,
-	AUG = 8,
-	SEP = 9,
-	OCT = 10,
-	NOV = 11,
-	DEC = 12,
+	JUNE = 6,
+	JULY = 7,
+	AUGUST = 8,
+	SEPTEMBER = 9,
+	OCTOBER = 10,
+	NOVEMBER = 11,
+	DECEMBER = 12,
 	MONTH_T_MAX = 13
 } month_t;
 
@@ -142,7 +144,6 @@ typedef enum
 } alarm_trigger_t;
 
 // used to set alarms
-// 
 typedef struct
 {
 	alarm_number_t alarmNumber; // which alarm to set
@@ -157,12 +158,28 @@ typedef struct
 	alarm_trigger_t trigger; // when the alarm will trigger, e.g. on match on mins & seconds
 } alarm_t;
 
-// global variables 
+// the frequencies the bbsqw can output
+typedef enum
+{
+	HZ_1, // 1 Hz
+	KHZ_1_024, // 1.024 KHz
+	KHZ_4_096, // 4.096 KHz
+	KHZ_8_192, // 8.192 KHz
+	BBSQW_FREQUENCY_MAX	
+} bbsqw_frequency_t;
+
+
+////////////////////////////////////////////////////////////////
+// Global variables                                           //
+////////////////////////////////////////////////////////////////
 // used to track the century
 static uint8_t century = 0; // year 20xx has a century of 0
 // used to indicate the hour storing mode, either AM/PM (12 hour mode) or 24 hour mode
 static bool is24HourMode = true;
 
+////////////////////////////////////////////////////////////////
+// Function prototypes                                        //
+////////////////////////////////////////////////////////////////
 void initDS3231(void);
 
 // time setting / getting functions
@@ -200,6 +217,22 @@ uint8_t ds3231SetTime(uint8_t, uint8_t, uint8_t, bool);
 static uint8_t validateAlarm(alarm_t alarm);
 uint8_t ds3231SetAlarm(alarm_t);
 uint8_t ds3231ClearAlarmFlag(alarm_number_t);
+
+// temperature functions
+void ds3231ForceTemperatureUpdate(void);
+uint16_t ds3231GetTemperature(void);
+
+// oscillator functions
+uint8_t ds3231DisableOscillatorOnBattery(void);
+uint8_t ds3231EnableOscillatorOnBattery(void);
+bool ds3231HasOscillatorStopped(void);
+
+// 32KHz output pin functions
+uint8_t ds3231Enable32KHzOutput(void);
+uint8_t ds3231Disable32KhzOutput(void);
+
+// other functions
+uint8_t ds3231EnableBBSQW(bbsqw_frequency_t freq);
 
 // utility functions
 uint8_t decToBcd(uint8_t);

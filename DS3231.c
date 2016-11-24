@@ -27,7 +27,7 @@ void ds3231Use12HourMode(bool use12HourMode)
 /*
    ensures the alarm_t struct passed to set an alarm contains valid combinations of values 
 		Param: alarm -> the alarm the user supplied to be passed to the ds3231
-		Return: DS3231_OPERATION_SUCCESS (0) if the alarm was valid
+		Returns: DS3231_OPERATION_SUCCESS (0) if the alarm was valid
 	    1 if an invalid alarmNumber was used
 		2 if an invalid trigger was used
 		3 if an invalid second value was used with ALARM1 and A1_SEC_MATCH
@@ -139,9 +139,9 @@ static uint8_t validateAlarm(alarm_t alarm)
 }
 
 /*
-   sets an alarm on the ds3231
+   sets an alarm on the ds3231. Also ensures INTCN and A1IE / A2IE is set so alarms will function
 		Param: alarm -> the alarm struct that contains all the info needed to set the alarm
-		Return: DS3231_OPERATION_SUCCESS (0) if the alarm was valid
+		Returns: DS3231_OPERATION_SUCCESS (0) if the alarm was valid
 	    1 if an invalid alarmNumber was used
 		2 if an invalid trigger was used
 		3 if an invalid second value was used with ALARM1 and A1_SEC_MATCH
@@ -161,8 +161,20 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 	if(error)
 		return error;
 
+	// ensure INTCN is set for alarms to trigger an interrupt on INTCN/SQW pin
+	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
+	uint8_t controlReg = i2cReadNak();
+	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	i2cWriteThenStop(controlReg | DS3231_CONTROL_INTCN_BIT);
+
 	if(alarm.alarmNumber == ALARM_1)
 	{
+		// ensure A1IE is set so that alarms will trigger
+		i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
+		uint8_t controlReg = i2cReadNak();
+		i2cRepeatStart(DS3231_ADDRESS_WRITE);
+		i2cWriteThenStop(controlReg | DS3231_CONTROL_A1IE_BIT);
+
 		switch(alarm.trigger)
 		{
 			case A1_EVERY_SEC: // needs a1m1, a1m2, a1m3 and a1m4 all set
@@ -250,6 +262,12 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 	}
 	else // alarm 2
 	{
+		// ensure A2IE is set so that alarms will trigger
+		i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
+		uint8_t controlReg = i2cReadNak();
+		i2cRepeatStart(DS3231_ADDRESS_WRITE);
+		i2cWriteThenStop(controlReg | DS3231_CONTROL_A2IE_BIT);
+
 		switch(alarm.trigger)
 		{
 			case A2_EVERY_MIN: // needs a2m2, a2m3 and a2m4 set
@@ -314,7 +332,7 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 /*
    used to reset an alarms flag (that indicates the alarm was triggered)
 		Param: alarm -> the alarm number flag to be reset, e.g. ALARM_1
-		Return: DS3231_OPERATION_SUCCESS (0)
+		Returns: DS3231_OPERATION_SUCCESS (0)
 */
 uint8_t ds3231ClearAlarmFlag(alarm_number_t alarm)
 {
@@ -323,9 +341,9 @@ uint8_t ds3231ClearAlarmFlag(alarm_number_t alarm)
 	i2cStop();
 	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
 	if(alarm == ALARM_1)
-		i2cWriteThenStop(statusReg & ~(DS3231_A1F_BIT));
+		i2cWriteThenStop(statusReg & ~(DS3231_STATUS_A1F_BIT));
 	else 
-		i2cWriteThenStop(statusReg & ~(DS3231_A2F_BIT));
+		i2cWriteThenStop(statusReg & ~(DS3231_STATUS_A2F_BIT));
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -351,12 +369,12 @@ uint8_t ds3231SetTime(uint8_t hour, uint8_t minute, uint8_t second, bool isPM)
 
 /*
    allows the day, date, month, year and century to be set with a single function call
-Param: day -> the desired day the DS3231 will be set to
-       date -> the desired date the DS3231 will be set to
-       month -> the desired month the DS3231 will be set to
-       year -> the desired year the DS3231 will be set to
-       century -> the desired century the DS3231 will be set to
-Returns: DS3231_OPERATION_SUCCESS (0) if everything worked, otherwise a non-zero error
+		Param: day -> the desired day the DS3231 will be set to
+			   date -> the desired date the DS3231 will be set to
+			   month -> the desired month the DS3231 will be set to
+			   year -> the desired year the DS3231 will be set to
+			   century -> the desired century the DS3231 will be set to
+		Returns: DS3231_OPERATION_SUCCESS (0) if everything worked, otherwise a non-zero error
 */
 uint8_t ds3231SetFullDate(day_t day, uint8_t date, month_t month, uint8_t year, uint8_t century)
 {
@@ -587,7 +605,6 @@ uint8_t ds3231GetSecond()
 	checkCentury();
 
 	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_SECONDS);
-
 	i2cRepeatStart(DS3231_ADDRESS_READ);
 	uint8_t seconds = i2cReadNak(); // read from register
 	i2cStop();
@@ -595,9 +612,205 @@ uint8_t ds3231GetSecond()
 	return bcdToDec(seconds);
 }
 
+/*
+   sets the oscillator enable bit in the control register to 1, which indicates that when the
+   ds3231 switches to the battery power supply that the oscillator should stop (therefore 
+   saving the power). This does mean however that no new data is put into the time registers,
+   essentially disables the time functions of the ds3231
+		Returns: DS3231_OPERATION_SUCCESS (0)
+*/
+uint8_t ds3231DisableOscillatorOnBattery(void)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t controlReg = i2cReadNak();
+	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	i2cWriteThenStop(controlReg | DS3231_CONTROL_EOSC_BIT);
 
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
+	return DS3231_OPERATION_SUCCESS;
+}
+
+/*
+   enables the oscillator to run when the ds3231 switches to battery mode. By default this is already the case and therefore there is no need to call this function if "ds3231DisableOscillatorOnBattery(void)" has not been called
+		Returns: DS3231_OPERATION_SUCCESS (0)
+*/
+uint8_t ds3231EnableOscillatorOnBattery(void)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t controlReg = i2cReadNak();
+	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	i2cWriteThenStop(controlReg & ~(DS3231_CONTROL_EOSC_BIT));
+
+	return DS3231_OPERATION_SUCCESS;
+}
+
+/*
+   enables the battery backed square wave output. Enabling this clears the INTCN bit and 
+   therefore means alarms will not trigger
+		Returns: DS3231_OPERATION_SUCCESS (0) if everything was ok
+		        1 if an invalid frequency was provided
+*/
+uint8_t ds3231EnableBBSQW(bbsqw_frequency_t freq)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t controlReg = i2cReadNak();
+	controlReg &= ~(DS3231_CONTROL_INTCN_BIT); // clear intc otherwise bbsqw will not work
+	controlReg |= DS3231_CONTROL_BBQSW_BIT;
+	switch(freq)
+	{
+		case HZ_1: // rs1 and rs2 both clear
+			controlReg &= ~(DS3231_CONTROL_RS1_BIT);
+			controlReg &= ~(DS3231_CONTROL_RS2_BIT);
+			break;
+		case KHZ_1_024: // rs1 set, rs2 clear
+			controlReg |= DS3231_CONTROL_RS1_BIT;
+			controlReg &= ~(DS3231_CONTROL_RS2_BIT);
+			break;
+		case KHZ_4_096: // rs1 clear, rs2 set
+			controlReg |= DS3231_CONTROL_RS2_BIT;
+			controlReg &= ~(DS3231_CONTROL_RS1_BIT);
+			break;
+		case KHZ_8_192: // rs1 and rs2 set
+			controlReg |= (DS3231_CONTROL_RS1_BIT | DS3231_CONTROL_RS2_BIT);
+			break;
+		default:
+			return 1;
+	}
+
+	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+
+	i2cWriteThenStop(controlReg);
+	return DS3231_OPERATION_SUCCESS;
+}
+
+/*
+   the ds3231 updates the temperature values every 64 seconds, however a user can force
+   a new temperature reading by setting the CONV bit in the CONTROL register
+*/
+void ds3231ForceTemperatureUpdate(void)
+{
+	// todo: not forcing the temp to update, fix
+	bool busy = true;
+	do // loop until BSY is clear (we can start our conversion)
+	{
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+		i2cRepeatStart(DS3231_ADDRESS_READ);
+		uint8_t statusReg = i2cReadNak();
+		i2cStop();
+
+		if(!(statusReg & DS3231_STATUS_BSY_BIT))
+			busy = false;
+	} while(busy);
+
+	// set the CONV bit to start a new conversion
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t controlReg = i2cReadNak();
+	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	i2cWriteThenStop(controlReg | DS3231_CONTROL_CONV_BIT);
+
+	busy = true;
+	do // loop until CONV becomes clear (conversion complete)
+	{
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+		i2cRepeatStart(DS3231_ADDRESS_READ);
+		uint8_t controlReg = i2cReadNak();
+		i2cStop();
+
+		if(!(controlReg & DS3231_CONTROL_CONV_BIT))
+			busy = false;
+	} while(busy);
+}
+
+/*
+   reads the temperature sensor of the ds3231. The temperature is encoded in a uint16_t with
+   bits 15 to 8 (0 indexed) representing a SIGNED integer temperature and bits 7 to 6 
+   representing the decimal part of the temperature. For example, if the function
+   returned...
+   6464 which is 0001100101000000
+   Then the top 8 bits (00011001) are the SIGNED integer representation of the temperature,
+   which is +25
+   And the following 2 bits (01) are the fractional part of the temperature, which is 0.25
+   So the tempreature read was +25.25
+		Returns: encoded 10 bit temperature value
+*/
+uint16_t ds3231GetTemperature(void)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_TEMPERATURE_MSB);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t temperatureUpper = i2cReadNak();
+	i2cStop();
+	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_TEMPERATURE_LSB);
+	uint8_t temperatureLower = i2cReadNak();
+	i2cStop();
+
+	return (temperatureUpper << 8) | temperatureLower;
+}
+
+/*
+   checks if the OSCILLATOR STOPPED FLAG (OSF) is set, if so the oscillator was stopped at some point, therefore the validity of the data held in the ds3231's registers may be at risk.
+   Also, clears the OSF flag if it was set
+		Returns: true if the oscillator has stopped at some point, false if it hasn't
+*/
+bool ds3231HasOscillatorStopped(void)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t statusReg = i2cReadNak();
+	i2cStop();
+
+	bool didStop = false;
+	if(statusReg & DS3231_STATUS_OSF_BIT) // oscillator stopped flag set
+	{
+		didStop = true;
+		// now reset the flag
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+		i2cWriteThenStop(statusReg & ~(DS3231_STATUS_OSF_BIT));
+	}
+
+	return didStop;
+}
+
+/*
+   enables the 32KHz square wave output signal. The oscillator must be running for this
+   wave to be output
+		Returns: DS3231_OPERATION_SUCCESS (0)
+*/
+uint8_t ds3231Enable32KHzOutput(void)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t statusReg = i2cReadNak();
+	i2cStop();
+	if(statusReg & ~DS3231_STATUS_EN32KHZ_BIT) // wasn't enabled, so enable it
+	{
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+		i2cWriteThenStop(statusReg | DS3231_STATUS_EN32KHZ_BIT);
+	}
+
+	return DS3231_OPERATION_SUCCESS;
+}
+
+/*
+   disables the 32KHz square wave output signal
+		Returns: DS3231_OPERATION_SUCCESS (0)
+*/
+uint8_t ds3231Disable32KhzOutput(void)
+{
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t statusReg = i2cReadNak();
+	i2cStop();
+	if(statusReg & DS3231_STATUS_EN32KHZ_BIT) // is enabled, so disable it
+	{
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+		i2cWriteThenStop(statusReg & ~DS3231_STATUS_EN32KHZ_BIT);
+	}
+
+	return DS3231_OPERATION_SUCCESS;
+}
 
 /*
    used to convert normal decimal numbers to BCD numbers
