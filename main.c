@@ -12,9 +12,9 @@ int main()
 	DDRB |= (0 << PB0);
 
 	ds3231Use12HourMode(false);
-	ds3231SetSecond(0);
+	ds3231SetSecond(58);
 	ds3231SetMinute(39);
-	ds3231SetHour(10, false);
+	ds3231SetHour(13, false);
 	ds3231SetDay(THURSDAY);
 	ds3231SetDate(28);
 	ds3231SetMonth(DECEMBER);
@@ -22,16 +22,17 @@ int main()
 	ds3231SetCentury(0); // century 0 = year 20xx
 
 	alarm_t alarm;
-	alarm.alarmNumber = ALARM_1;
+	alarm.alarmNumber = ALARM_2;
 	//alarm.second = 2;
-	//alarm.minute = 40;
-	//alarm.hour = 13;
-	//alarm.useDay = true;
-	//alarm.dayDate = THURSDAY;
-	alarm.trigger = A1_EVERY_SEC;
+	alarm.minute = 40;
+	alarm.hour = 13;
+	alarm.useDay = false;
+	alarm.dayDate = 28;
+	alarm.trigger = A2_DAY_DATE_HOUR_MIN_MATCH;
 
-	if(ds3231SetAlarm(alarm))
-		usartTransmitByte(1);
+	uint8_t err = ds3231SetAlarm(alarm);
+	if(err)
+		usartTransmitByte(err);
 
 	while(1)
 	{
@@ -61,7 +62,7 @@ int main()
 		else // pin is low (therefore ds3231 alarm triggered)
 		{
 			usartTransmitByte(65);
-			ds3231ClearAlarmFlag(ALARM_1);
+			ds3231ClearAlarmFlag(ALARM_2);
 		}
 	}
 }

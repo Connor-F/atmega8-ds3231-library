@@ -217,6 +217,7 @@ uint8_t ds3231SetTime(uint8_t, uint8_t, uint8_t, bool);
 static uint8_t validateAlarm(alarm_t alarm);
 uint8_t ds3231SetAlarm(alarm_t);
 uint8_t ds3231ClearAlarmFlag(alarm_number_t);
+uint8_t ds3231RemoveAlarm(alarm_number_t);
 
 // temperature functions
 void ds3231ForceTemperatureUpdate(void);
