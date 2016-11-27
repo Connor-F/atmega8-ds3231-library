@@ -161,18 +161,26 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 	if(error)
 		return error;
 
+	ds3231ClearAlarmFlag(alarm.alarmNumber);
+
 	// ensure INTCN is set for alarms to trigger an interrupt on INTCN/SQW pin
-	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
 	uint8_t controlReg = i2cReadNak();
-	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	i2cStop();
+
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
 	i2cWriteThenStop(controlReg | DS3231_CONTROL_INTCN_BIT);
 
 	if(alarm.alarmNumber == ALARM_1)
 	{
 		// ensure A1IE is set so that alarms will trigger
-		i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+		i2cRepeatStart(DS3231_ADDRESS_READ);
 		uint8_t controlReg = i2cReadNak();
-		i2cRepeatStart(DS3231_ADDRESS_WRITE);
+		i2cStop();
+
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
 		i2cWriteThenStop(controlReg | DS3231_CONTROL_A1IE_BIT);
 
 		switch(alarm.trigger)
@@ -248,10 +256,11 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
 				i2cWriteThenStop(decToBcd(alarm.hour));
 
-				// set hours
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
+				// set day/date
 				if(alarm.useDay)
-					alarm.hour |= DS3231_ALARM_DAY_BIT;
+					alarm.dayDate |= DS3231_ALARM_DAY_BIT;
+
+				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
 				i2cWriteThenStop(decToBcd(alarm.dayDate));
 
 				break;
@@ -263,9 +272,12 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 	else // alarm 2
 	{
 		// ensure A2IE is set so that alarms will trigger
-		i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_CONTROL);
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
+		i2cRepeatStart(DS3231_ADDRESS_READ);
 		uint8_t controlReg = i2cReadNak();
-		i2cRepeatStart(DS3231_ADDRESS_WRITE);
+		i2cStop();
+
+		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
 		i2cWriteThenStop(controlReg | DS3231_CONTROL_A2IE_BIT);
 
 		switch(alarm.trigger)
@@ -313,10 +325,12 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 				// set hours
 				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
 				i2cWriteThenStop(decToBcd(alarm.hour));
+
 				if(alarm.useDay)
 					alarm.dayDate |= DS3231_ALARM_DAY_BIT;
+
 				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_DAY_DATE);
-				i2cWriteThenStop(decToBcd(alarm.dayDate));
+                i2cWriteThenStop(decToBcd(alarm.dayDate));
 
 				break;
 
@@ -325,7 +339,6 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 		}
 	}
 
-	ds3231ClearAlarmFlag(alarm.alarmNumber);
 	return DS3231_OPERATION_SUCCESS;
 }
 
@@ -336,9 +349,11 @@ uint8_t ds3231SetAlarm(alarm_t alarm)
 */
 uint8_t ds3231ClearAlarmFlag(alarm_number_t alarm)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_STATUS);
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
 	uint8_t statusReg = i2cReadNak();
 	i2cStop();
+
 	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
 	if(alarm == ALARM_1)
 		i2cWriteThenStop(statusReg & ~(DS3231_STATUS_A1F_BIT));
@@ -473,6 +488,8 @@ month_t ds3231GetMonth(void)
 
 uint8_t ds3231SetDate(uint8_t date)
 {
+	if(date > 31)
+		return 1;
 	checkCentury();
 	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_DATE);
 	i2cWriteThenStop(decToBcd(date));
@@ -492,9 +509,11 @@ uint8_t ds3231GetDate(void)
 	return bcdToDec(date);
 }
 
-
 uint8_t ds3231SetDay(day_t day)
 {
+	if(day < 0 || day >= DAY_T_MAX)
+		return 1;
+
 	checkCentury();
 	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_DAY);
 	i2cWriteThenStop(decToBcd((uint8_t) day));

@@ -12,26 +12,32 @@ int main()
 	DDRB |= (0 << PB0);
 
 	ds3231Use12HourMode(false);
-	ds3231SetSecond(7);
-	ds3231SetMinute(59);
-	ds3231SetHour(23, false);
+	ds3231SetSecond(0);
+	ds3231SetMinute(39);
+	ds3231SetHour(10, false);
 	ds3231SetDay(THURSDAY);
-	ds3231SetDate(31);
+	ds3231SetDate(28);
 	ds3231SetMonth(DECEMBER);
-	ds3231SetYear(99);
+	ds3231SetYear(16);
 	ds3231SetCentury(0); // century 0 = year 20xx
 
 	alarm_t alarm;
 	alarm.alarmNumber = ALARM_1;
-	alarm.second = 9;
-	alarm.trigger = A1_SEC_MATCH;
-	ds3231SetAlarm(alarm);
+	//alarm.second = 2;
+	//alarm.minute = 40;
+	//alarm.hour = 13;
+	//alarm.useDay = true;
+	//alarm.dayDate = THURSDAY;
+	alarm.trigger = A1_EVERY_SEC;
+
+	if(ds3231SetAlarm(alarm))
+		usartTransmitByte(1);
 
 	while(1)
 	{
-		uint16_t temp = ds3231GetTemperature();
+		/*uint16_t temp = ds3231GetTemperature();
 		usartTransmitByte((uint8_t) (temp >> 8));
-		usartTransmitByte((uint8_t) temp);
+		usartTransmitByte((uint8_t) temp);*/
 		//usartTransmitByte(ds3231GetSecond());
 		/*usartTransmitByte(ds3231GetMinute());
 		usartTransmitByte(ds3231GetHour());
@@ -41,14 +47,14 @@ int main()
 		usartTransmitByte(ds3231GetYear());
 		usartTransmitByte(ds3231GetCentury());*/
 
-		ds3231ForceTemperatureUpdate();
+		/*ds3231ForceTemperatureUpdate();
 		_delay_ms(300);
 		temp = ds3231GetTemperature();
 		usartTransmitByte((uint8_t) (temp >> 8));
-		usartTransmitByte((uint8_t) temp);
+		usartTransmitByte((uint8_t) temp);*/
 
 
-		/*if(PINB & (1 << PB0))
+		if(PINB & (1 << PB0))
 		{
 			continue;
 		}
@@ -56,7 +62,6 @@ int main()
 		{
 			usartTransmitByte(65);
 			ds3231ClearAlarmFlag(ALARM_1);
-		}*/
-
+		}
 	}
 }
