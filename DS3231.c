@@ -1,7 +1,7 @@
 #include "DS3231.h"
 #include "i2cMaster.h"
 
-#include "USART.h"
+#include "USART.h" // temp, debug
 
 /*
    sets up i2c bus
@@ -691,7 +691,6 @@ uint8_t ds3231EnableBBSQW(bbsqw_frequency_t freq)
 */
 void ds3231ForceTemperatureUpdate(void)
 {
-	// todo: not forcing the temp to update, fix
 	bool busy = true;
 	do // loop until BSY is clear (we can start our conversion)
 	{
@@ -708,7 +707,9 @@ void ds3231ForceTemperatureUpdate(void)
 	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
 	i2cRepeatStart(DS3231_ADDRESS_READ);
 	uint8_t controlReg = i2cReadNak();
-	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	i2cStop();
+
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
 	i2cWriteThenStop(controlReg | DS3231_CONTROL_CONV_BIT);
 
 	busy = true;
@@ -742,7 +743,9 @@ uint16_t ds3231GetTemperature(void)
 	i2cRepeatStart(DS3231_ADDRESS_READ);
 	uint8_t temperatureUpper = i2cReadNak();
 	i2cStop();
-	i2cSetRegisterPointer(DS3231_ADDRESS_READ, DS3231_REGISTER_TEMPERATURE_LSB);
+
+	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_TEMPERATURE_LSB);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
 	uint8_t temperatureLower = i2cReadNak();
 	i2cStop();
 

@@ -41,11 +41,12 @@ int main()
 		usartTransmitByte(ds3231GetYear());
 		usartTransmitByte(ds3231GetCentury());*/
 
-		_delay_ms(3000);
 		ds3231ForceTemperatureUpdate();
+		_delay_ms(300);
 		temp = ds3231GetTemperature();
 		usartTransmitByte((uint8_t) (temp >> 8));
 		usartTransmitByte((uint8_t) temp);
+
 
 		/*if(PINB & (1 << PB0))
 		{
