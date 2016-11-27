@@ -214,8 +214,8 @@ uint8_t ds3231SetFullDate(day_t, uint8_t, month_t, uint8_t, uint8_t);
 uint8_t ds3231SetTime(uint8_t, uint8_t, uint8_t, bool);
 
 // alarm functions
-static uint8_t validateAlarm(alarm_t alarm);
-uint8_t ds3231SetAlarm(alarm_t);
+static uint8_t validateAlarm(const alarm_t *);
+uint8_t ds3231SetAlarm(const alarm_t *);
 uint8_t ds3231ClearAlarmFlag(alarm_number_t);
 uint8_t ds3231RemoveAlarm(alarm_number_t);
 

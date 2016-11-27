@@ -30,7 +30,7 @@ int main()
 	alarm.dayDate = 28;
 	alarm.trigger = A2_DAY_DATE_HOUR_MIN_MATCH;
 
-	uint8_t err = ds3231SetAlarm(alarm);
+	uint8_t err = ds3231SetAlarm(&alarm);
 	if(err)
 		usartTransmitByte(err);
 
