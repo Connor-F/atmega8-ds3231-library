@@ -19,9 +19,7 @@ The DS3231 should be initialised with data on first use, then the other function
 `ds3231SetSecond(5);` and `ds3231SetDay(MONDAY);` etc.
 Instead of calling each set time function seperately, the function `ds3231SetTime(hour, min, second, isPM);` can be called to set the time in a single line. For example, 
 `ds3231SetTime(14, 2, 47, false);`. This sets the time to 14:02:47 (24 hour).
-4. Day, date, month, year and century should be given values next. This can be done using the appropriate `ds3231Set` functions, e.g. `ds3231SetMonth(DECEMBER);`.
-
-Alternatively the function `ds3231SetFullDate(TUESDAY, 28, NOVEMBER, 16, 0);` can be used to set the full date in a single line
+4. Day, date, month, year and century should be given values next. This can be done using the appropriate `ds3231Set` functions, e.g. `ds3231SetMonth(DECEMBER);`. Alternatively the function `ds3231SetFullDate(TUESDAY, 28, NOVEMBER, 16, 0);` can be used to set the full date in a single line
 
 ###Using DS3231 alarms
 

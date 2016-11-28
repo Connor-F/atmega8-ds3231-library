@@ -68,4 +68,6 @@ int main()
 			ds3231ClearAlarmFlag(ALARM_2);
 		}*/
 	}
+
+	return 0;
 }
