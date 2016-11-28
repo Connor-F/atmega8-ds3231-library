@@ -36,9 +36,9 @@ int main()
 
 	while(1)
 	{
-		/*uint16_t temp = ds3231GetTemperature();
+		uint16_t temp = ds3231GetTemperature();
 		usartTransmitByte((uint8_t) (temp >> 8));
-		usartTransmitByte((uint8_t) temp);*/
+		usartTransmitByte((uint8_t) temp);
 		//usartTransmitByte(ds3231GetSecond());
 		/*usartTransmitByte(ds3231GetMinute());
 		usartTransmitByte(ds3231GetHour());
@@ -48,14 +48,14 @@ int main()
 		usartTransmitByte(ds3231GetYear());
 		usartTransmitByte(ds3231GetCentury());*/
 
-		/*ds3231ForceTemperatureUpdate();
+		ds3231ForceTemperatureUpdate();
 		_delay_ms(300);
 		temp = ds3231GetTemperature();
 		usartTransmitByte((uint8_t) (temp >> 8));
-		usartTransmitByte((uint8_t) temp);*/
+		usartTransmitByte((uint8_t) temp);
 
 
-		if(PINB & (1 << PB0))
+		/*if(PINB & (1 << PB0))
 		{
 			continue;
 		}
@@ -63,6 +63,6 @@ int main()
 		{
 			usartTransmitByte(65);
 			ds3231ClearAlarmFlag(ALARM_2);
-		}
+		}*/
 	}
 }

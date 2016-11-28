@@ -103,10 +103,6 @@ void i2cStartWait(uint8_t addr);
  @retval   1 write failed
  */
 uint8_t i2cWrite(uint8_t data);
-/*
-   same as above but sends a STOP conditon after writing the data
-*/
-uint8_t i2cWriteThenStop(uint8_t data);
 
 /**
  @brief    read one byte from the I2C device, request more data from device 
@@ -130,8 +126,6 @@ uint8_t i2cReadNak(void);
  @return   byte read from I2C device
  */
 uint8_t i2cRead(uint8_t ack);
-
-void i2cSetRegisterPointer(uint8_t addr, uint8_t reg);
 
 /**@}*/
 

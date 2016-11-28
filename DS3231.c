@@ -15,6 +15,45 @@ void initDS3231(void)
 }
 
 /*
+   utility function to set the register pointer on
+   the ds3231
+	Param: reg -> the register to be pointed at by the register pointer
+*/
+void setRegisterPointer(uint8_t reg)
+{
+	i2cStart(DS3231_ADDRESS_WRITE);
+	i2cWrite(reg);
+}
+
+/*
+   utility function to get a registers value (single byte)
+	Param: reg -> the register to read
+	Returns: the value of the register (1 byte)
+*/
+uint8_t getRegisterValue(uint8_t reg)
+{
+	setRegisterPointer(reg);
+	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t registerValue = i2cReadNak();
+	i2cStop();
+
+	return registerValue;
+}
+
+/*
+   writes the value to the provided register of the
+   ds3231
+	Param: value -> the value to write to the register
+		   reg -> the register to write the value to
+*/
+void writeValueThenStop(uint8_t value, uint8_t reg)
+{
+	setRegisterPointer(reg);
+	i2cWrite(value);
+	i2cStop();
+}
+
+/*
    allows for alarms to be cleared/removed/deleted from the ds3231. This function clears
    the appropriate alarms registers, clears the alarm flag and clears the alarm enable bit.
    Removing an alarm permantely deletes the alarm, unlike the `ds3231ClearAlarmFlag` function 
@@ -45,34 +84,20 @@ uint8_t ds3231RemoveAlarm(alarm_number_t alarm)
 	}
 
 	if(alarm == ALARM_1) // only alarm1 has seconds register
-	{
-		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
-		i2cWriteThenStop(0);
-	}
+		writeValueThenStop(0, DS3231_REGISTER_ALARM1_SECONDS);
 
 	// clear mins, hours and day/date alarm registers
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, minutesReg);
-	i2cWriteThenStop(0);
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, hoursReg);
-	i2cWriteThenStop(0);
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, dayDateReg);
-	i2cWriteThenStop(0);
+	writeValueThenStop(0, minutesReg);
+	writeValueThenStop(0, hoursReg);
+	writeValueThenStop(0, dayDateReg);
 
 	// disable interrupts for alarm
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t controlReg = i2cReadNak();
-	i2cStop();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cWriteThenStop(controlReg & ~enableInterruptFlag);
+	uint8_t controlReg = getRegisterValue(DS3231_REGISTER_CONTROL);
+	writeValueThenStop(controlReg & ~enableInterruptFlag, DS3231_REGISTER_CONTROL);
 
 	// clear alarm flag
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t statusReg = i2cReadNak();
-	i2cStop();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-	i2cWriteThenStop(statusReg & ~alarmFlag);
+	uint8_t statusReg = getRegisterValue(DS3231_REGISTER_STATUS);
+	writeValueThenStop(statusReg & ~alarmFlag, DS3231_REGISTER_STATUS);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -229,11 +254,7 @@ uint8_t ds3231SetAlarm(const alarm_t *alarm)
 		return error;
 
 	// enable alarm interrupts
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t controlReg = i2cReadNak();
-	i2cStop();
-
+	uint8_t controlReg = getRegisterValue(DS3231_REGISTER_CONTROL);
 	// ensure INTCN is set for alarms to trigger an interrupt on INTCN/SQW pin
 	// ensure A1IE / A2IE is enabled for alarm1/2 interrupts
 	controlReg |= DS3231_CONTROL_INTCN_BIT;
@@ -241,8 +262,7 @@ uint8_t ds3231SetAlarm(const alarm_t *alarm)
 		controlReg |= DS3231_CONTROL_A1IE_BIT;
 	else
 		controlReg |= DS3231_CONTROL_A2IE_BIT;
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cWriteThenStop(controlReg);
+	writeValueThenStop(controlReg, DS3231_REGISTER_CONTROL);
 
 	if(alarm->alarmNumber == ALARM_1)
 	{
@@ -250,81 +270,61 @@ uint8_t ds3231SetAlarm(const alarm_t *alarm)
 		{
 			case A1_EVERY_SEC: // needs a1m1, a1m2, a1m3 and a1m4 all set
 				// set a1m1
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M1_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M1_BIT), DS3231_REGISTER_ALARM1_SECONDS);
 				// set a1m2
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M2_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M2_BIT), DS3231_REGISTER_ALARM1_MINUTES);
 				// set a1m3
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT), DS3231_REGISTER_ALARM1_HOURS);
 				// set a1m4
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT), DS3231_REGISTER_ALARM1_DAY_DATE);
 				break;
 
 			case A1_SEC_MATCH: // needs a1m2, a1m3 and a1m4 set
 				// set seconds
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
-				i2cWriteThenStop(decToBcd(alarm->second));
+				writeValueThenStop(decToBcd(alarm->second), DS3231_REGISTER_ALARM1_SECONDS);
 				// set a1m2
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M2_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M2_BIT), DS3231_REGISTER_ALARM1_MINUTES);
 				// set a1m3
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT), DS3231_REGISTER_ALARM1_HOURS);
 				// set a1m4
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT), DS3231_REGISTER_ALARM1_DAY_DATE);
 				break;
 
 			case A1_MIN_SEC_MATCH: // needs a1m3 and a1m4 set
 				// set seconds
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
-				i2cWriteThenStop(decToBcd(alarm->second));
+				writeValueThenStop(decToBcd(alarm->second), DS3231_REGISTER_ALARM1_SECONDS);
 				// set mins
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
-				i2cWriteThenStop(decToBcd(alarm->minute));
+				writeValueThenStop(decToBcd(alarm->minute), DS3231_REGISTER_ALARM1_MINUTES);
 				// set a1m3
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M3_BIT), DS3231_REGISTER_ALARM1_HOURS);
 				// set a1m4
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT), DS3231_REGISTER_ALARM1_DAY_DATE);
 				break;
 
 			case A1_HOUR_MIN_SEC_MATCH: // needs a1m4 set
 				// set seconds
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
-				i2cWriteThenStop(decToBcd(alarm->second));
+				writeValueThenStop(decToBcd(alarm->second), DS3231_REGISTER_ALARM1_SECONDS);
 				// set mins
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
-				i2cWriteThenStop(decToBcd(alarm->minute));
+				writeValueThenStop(decToBcd(alarm->minute), DS3231_REGISTER_ALARM1_MINUTES);
 				// set hours
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
-				i2cWriteThenStop(decToBcd(alarm->hour));
+				writeValueThenStop(decToBcd(alarm->hour), DS3231_REGISTER_ALARM1_HOURS);
 				// set a1m4
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM1_A1M4_BIT), DS3231_REGISTER_ALARM1_DAY_DATE);
 				break;
 
 			case A1_DAY_DATE_HOUR_MIN_SEC_MATCH: // no a1m* bits needed
 				// set seconds
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_SECONDS);
-				i2cWriteThenStop(decToBcd(alarm->second));
+				writeValueThenStop(decToBcd(alarm->second), DS3231_REGISTER_ALARM1_SECONDS);
 				// set mins
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_MINUTES);
-				i2cWriteThenStop(decToBcd(alarm->minute));
+				writeValueThenStop(decToBcd(alarm->minute), DS3231_REGISTER_ALARM1_MINUTES);
 				// set hours
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_HOURS);
-				i2cWriteThenStop(decToBcd(alarm->hour));
+				writeValueThenStop(decToBcd(alarm->hour), DS3231_REGISTER_ALARM1_HOURS);
 
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM1_DAY_DATE);
 				// set day/date
 				if(alarm->useDay)
-					i2cWriteThenStop(alarm->dayDate | DS3231_ALARM_DAY_BIT);
+					writeValueThenStop(alarm->dayDate | DS3231_ALARM_DAY_BIT, DS3231_REGISTER_ALARM1_DAY_DATE);
 				else
-					i2cWriteThenStop(decToBcd(alarm->dayDate));
+					writeValueThenStop(decToBcd(alarm->dayDate), DS3231_REGISTER_ALARM1_DAY_DATE);
 
 				break;
 
@@ -338,53 +338,41 @@ uint8_t ds3231SetAlarm(const alarm_t *alarm)
 		{
 			case A2_EVERY_MIN: // needs a2m2, a2m3 and a2m4 set
 				// set a2m2
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M2_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM2_A2M2_BIT), DS3231_REGISTER_ALARM2_MINUTES);
 				// set a2m3
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M3_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM2_A2M3_BIT), DS3231_REGISTER_ALARM2_HOURS);
 				// set a2m4
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_DAY_DATE);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT), DS3231_REGISTER_ALARM2_DAY_DATE);
 				break;
 
 			case A2_MIN_MATCH: // a2m3 and a2m4 set
 				// set a2m3
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M3_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM2_A2M3_BIT), DS3231_REGISTER_ALARM2_HOURS);
 				// set a2m4
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_DAY_DATE);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT), DS3231_REGISTER_ALARM2_DAY_DATE);
 				// set minutes
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
-				i2cWriteThenStop(decToBcd(alarm->minute));
+				writeValueThenStop(decToBcd(alarm->minute), DS3231_REGISTER_ALARM2_MINUTES);
 				break;
 
 			case A2_HOUR_MIN_MATCH: // a2m4 set
 				// set a2m4
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_DAY_DATE);
-				i2cWriteThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT));
+				writeValueThenStop(decToBcd(DS3231_ALARM2_A2M4_BIT), DS3231_REGISTER_ALARM2_DAY_DATE);
 				// set minutes
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
-				i2cWriteThenStop(decToBcd(alarm->minute));
+				writeValueThenStop(decToBcd(alarm->minute), DS3231_REGISTER_ALARM2_MINUTES);
 				// set hours
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
-				i2cWriteThenStop(decToBcd(alarm->hour));
+				writeValueThenStop(decToBcd(alarm->hour), DS3231_REGISTER_ALARM2_HOURS);
 				break;
 
 			case A2_DAY_DATE_HOUR_MIN_MATCH: // no a2m* bits needed, does need day/date bit set
 				// set minutes
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_MINUTES);
-				i2cWriteThenStop(decToBcd(alarm->minute));
+				writeValueThenStop(decToBcd(alarm->minute), DS3231_REGISTER_ALARM2_MINUTES);
 				// set hours
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_HOURS);
-				i2cWriteThenStop(decToBcd(alarm->hour));
+				writeValueThenStop(decToBcd(alarm->hour), DS3231_REGISTER_ALARM2_HOURS);
 
-				i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_ALARM2_DAY_DATE);
 				if(alarm->useDay)
-					i2cWriteThenStop(alarm->dayDate | DS3231_ALARM_DAY_BIT);
+					writeValueThenStop(alarm->dayDate | DS3231_ALARM_DAY_BIT, DS3231_REGISTER_ALARM2_DAY_DATE);
 				else
-					i2cWriteThenStop(decToBcd(alarm->dayDate));
+					writeValueThenStop(decToBcd(alarm->dayDate), DS3231_REGISTER_ALARM2_DAY_DATE);
 
 				break;
 
@@ -405,16 +393,12 @@ uint8_t ds3231SetAlarm(const alarm_t *alarm)
 */
 uint8_t ds3231ClearAlarmFlag(alarm_number_t alarm)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t statusReg = i2cReadNak();
-	i2cStop();
+	uint8_t statusReg = getRegisterValue(DS3231_REGISTER_STATUS);
 
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
 	if(alarm == ALARM_1)
-		i2cWriteThenStop(statusReg & ~(DS3231_STATUS_A1F_BIT));
+		writeValueThenStop(statusReg & ~DS3231_STATUS_A1F_BIT, DS3231_REGISTER_STATUS);
 	else 
-		i2cWriteThenStop(statusReg & ~(DS3231_STATUS_A2F_BIT));
+		writeValueThenStop(statusReg & ~DS3231_STATUS_A2F_BIT, DS3231_REGISTER_STATUS);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -465,11 +449,7 @@ uint8_t ds3231SetFullDate(day_t day, uint8_t date, month_t month, uint8_t year, 
  */
 static void checkCentury(void)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_MONTH_CENTURY);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-
-	uint8_t month = i2cReadNak();
-	i2cStop();
+	uint8_t month = getRegisterValue(DS3231_REGISTER_MONTH_CENTURY);
 	if(month & DS3231_CENTURY_BIT) // entered a new century
 	{
 		century++;
@@ -509,9 +489,7 @@ uint8_t ds3231SetYear(uint8_t year)
 		return 1;
 
 	checkCentury();
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_YEAR);
-	i2cWriteThenStop(decToBcd(year));
+	writeValueThenStop(decToBcd(year), DS3231_REGISTER_YEAR);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -523,12 +501,8 @@ uint8_t ds3231SetYear(uint8_t year)
 uint8_t ds3231GetYear(void)
 {
 	checkCentury();
+	uint8_t year = getRegisterValue(DS3231_REGISTER_YEAR);
 
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_YEAR);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t year = i2cReadNak();
-
-	i2cStop();
 	return bcdToDec(year);
 }
 
@@ -543,8 +517,7 @@ uint8_t ds3231SetMonth(month_t month)
 	if(month < 0 || month >= MONTH_T_MAX)
 		return 1;
 
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_MONTH_CENTURY);
-	i2cWriteThenStop(decToBcd((uint8_t) month)); // this also sets the century bit to 0
+	writeValueThenStop(decToBcd((uint8_t) month), DS3231_REGISTER_MONTH_CENTURY);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -556,11 +529,7 @@ uint8_t ds3231SetMonth(month_t month)
 month_t ds3231GetMonth(void)
 {
 	checkCentury();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_MONTH_CENTURY);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-
-	uint8_t month = i2cReadNak();
-	i2cStop();
+	uint8_t month = getRegisterValue(DS3231_REGISTER_MONTH_CENTURY);
 
 	return (month_t) bcdToDec(month);
 }
@@ -577,8 +546,7 @@ uint8_t ds3231SetDate(uint8_t date)
 		return 1;
 
 	checkCentury();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_DATE);
-	i2cWriteThenStop(decToBcd(date));
+	writeValueThenStop(decToBcd(date), DS3231_REGISTER_DATE);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -590,11 +558,7 @@ uint8_t ds3231SetDate(uint8_t date)
 uint8_t ds3231GetDate(void)
 {
 	checkCentury();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_DATE);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-
-	uint8_t date = i2cReadNak();
-	i2cStop();
+	uint8_t date = getRegisterValue(DS3231_REGISTER_DATE);
 
 	return bcdToDec(date);
 }
@@ -611,8 +575,7 @@ uint8_t ds3231SetDay(day_t day)
 		return 1;
 
 	checkCentury();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_DAY);
-	i2cWriteThenStop(decToBcd((uint8_t) day));
+	writeValueThenStop(decToBcd((uint8_t) day), DS3231_REGISTER_DAY);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -624,12 +587,8 @@ uint8_t ds3231SetDay(day_t day)
 day_t ds3231GetDay(void)
 {
 	checkCentury();
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_DAY);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
+	uint8_t day = getRegisterValue(DS3231_REGISTER_DAY);
 
-	uint8_t day = i2cReadNak();
-
-	i2cStop();
 	return (day_t) bcdToDec(day);
 }
 
@@ -661,9 +620,7 @@ uint8_t ds3231SetHour(uint8_t hours, bool isPM)
 	}
 
 	hoursValue |= decToBcd(hours);
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_HOURS);
-	i2cWriteThenStop(hoursValue); // write value
+	writeValueThenStop(hoursValue, DS3231_REGISTER_HOURS);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -675,12 +632,8 @@ uint8_t ds3231SetHour(uint8_t hours, bool isPM)
 uint8_t ds3231GetHour(void)
 {
 	checkCentury();
+	uint8_t hours = getRegisterValue(DS3231_REGISTER_HOURS);
 
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_HOURS);
-	i2cRepeatStart(DS3231_ADDRESS_READ); // now read the hours register
-
-	uint8_t hours = i2cReadNak();
-	i2cStop();
 	return bcdToDec(hours);
 }
 
@@ -696,9 +649,7 @@ uint8_t ds3231SetMinute(uint8_t minutes)
 		return 1;
 
 	checkCentury();
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_MINUTES);
-	i2cWriteThenStop(decToBcd(minutes)); // write to register
+	writeValueThenStop(decToBcd(minutes), DS3231_REGISTER_MINUTES);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -710,12 +661,7 @@ uint8_t ds3231SetMinute(uint8_t minutes)
 uint8_t ds3231GetMinute(void)
 {
 	checkCentury();
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_MINUTES);
-
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t minutes = i2cReadNak(); // read from register
-	i2cStop();
+	uint8_t minutes = getRegisterValue(DS3231_REGISTER_MINUTES);
 
 	return bcdToDec(minutes);
 }
@@ -732,9 +678,7 @@ uint8_t ds3231SetSecond(uint8_t seconds)
 		return 1; // invalid condition
 
 	checkCentury();
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_SECONDS);
-	i2cWriteThenStop(decToBcd(seconds)); // write to register
+	writeValueThenStop(decToBcd(seconds), DS3231_REGISTER_SECONDS);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -746,11 +690,7 @@ uint8_t ds3231SetSecond(uint8_t seconds)
 uint8_t ds3231GetSecond()
 {
 	checkCentury();
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_SECONDS);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t seconds = i2cReadNak(); // read from register
-	i2cStop();
+	uint8_t seconds = getRegisterValue(DS3231_REGISTER_SECONDS);
 
 	return bcdToDec(seconds);
 }
@@ -764,11 +704,8 @@ uint8_t ds3231GetSecond()
 */
 uint8_t ds3231DisableOscillatorOnBattery(void)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t controlReg = i2cReadNak();
-	i2cRepeatStart(DS3231_ADDRESS_WRITE);
-	i2cWriteThenStop(controlReg | DS3231_CONTROL_EOSC_BIT);
+	uint8_t controlReg = getRegisterValue(DS3231_REGISTER_CONTROL);
+	writeValueThenStop(controlReg | DS3231_CONTROL_EOSC_BIT, DS3231_REGISTER_CONTROL);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -779,11 +716,8 @@ uint8_t ds3231DisableOscillatorOnBattery(void)
 */
 uint8_t ds3231EnableOscillatorOnBattery(void)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t controlReg = i2cReadNak();
-	i2cRepeatStart(DS3231_ADDRESS_WRITE);
-	i2cWriteThenStop(controlReg & ~(DS3231_CONTROL_EOSC_BIT));
+	uint8_t controlReg = getRegisterValue(DS3231_REGISTER_CONTROL);
+	writeValueThenStop(controlReg & ~DS3231_CONTROL_EOSC_BIT, DS3231_REGISTER_CONTROL);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -796,9 +730,7 @@ uint8_t ds3231EnableOscillatorOnBattery(void)
 */
 uint8_t ds3231EnableBBSQW(bbsqw_frequency_t freq)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t controlReg = i2cReadNak();
+	uint8_t controlReg = getRegisterValue(DS3231_REGISTER_CONTROL);
 	controlReg &= ~(DS3231_CONTROL_INTCN_BIT); // clear intc otherwise bbsqw will not work
 	controlReg |= DS3231_CONTROL_BBQSW_BIT;
 	switch(freq)
@@ -819,12 +751,12 @@ uint8_t ds3231EnableBBSQW(bbsqw_frequency_t freq)
 			controlReg |= (DS3231_CONTROL_RS1_BIT | DS3231_CONTROL_RS2_BIT);
 			break;
 		default:
+			i2cStop();
 			return 1;
 	}
 
-	i2cRepeatStart(DS3231_ADDRESS_WRITE);
+	writeValueThenStop(controlReg, DS3231_REGISTER_CONTROL);
 
-	i2cWriteThenStop(controlReg);
 	return DS3231_OPERATION_SUCCESS;
 }
 
@@ -837,31 +769,20 @@ void ds3231ForceTemperatureUpdate(void)
 	bool busy = true;
 	do // loop until BSY is clear (we can start our conversion)
 	{
-		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-		i2cRepeatStart(DS3231_ADDRESS_READ);
-		uint8_t statusReg = i2cReadNak();
-		i2cStop();
+		uint8_t statusReg = getRegisterValue(DS3231_REGISTER_STATUS);
 
 		if(!(statusReg & DS3231_STATUS_BSY_BIT))
 			busy = false;
 	} while(busy);
 
 	// set the CONV bit to start a new conversion
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t controlReg = i2cReadNak();
-	i2cStop();
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-	i2cWriteThenStop(controlReg | DS3231_CONTROL_CONV_BIT);
+	uint8_t controlReg = getRegisterValue(DS3231_REGISTER_CONTROL);
+	writeValueThenStop(controlReg | DS3231_CONTROL_CONV_BIT, DS3231_REGISTER_CONTROL);
 
 	busy = true;
 	do // loop until CONV becomes clear (conversion complete)
 	{
-		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_CONTROL);
-		i2cRepeatStart(DS3231_ADDRESS_READ);
-		uint8_t controlReg = i2cReadNak();
-		i2cStop();
+		uint8_t controlReg = getRegisterValue(DS3231_REGISTER_CONTROL);
 
 		if(!(controlReg & DS3231_CONTROL_CONV_BIT))
 			busy = false;
@@ -882,15 +803,8 @@ void ds3231ForceTemperatureUpdate(void)
 */
 uint16_t ds3231GetTemperature(void)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_TEMPERATURE_MSB);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t temperatureUpper = i2cReadNak();
-	i2cStop();
-
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_TEMPERATURE_LSB);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t temperatureLower = i2cReadNak();
-	i2cStop();
+	uint8_t temperatureUpper = getRegisterValue(DS3231_REGISTER_TEMPERATURE_MSB);
+	uint8_t temperatureLower = getRegisterValue(DS3231_REGISTER_TEMPERATURE_LSB);
 
 	return (temperatureUpper << 8) | temperatureLower;
 }
@@ -902,18 +816,14 @@ uint16_t ds3231GetTemperature(void)
 */
 bool ds3231HasOscillatorStopped(void)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t statusReg = i2cReadNak();
-	i2cStop();
+	uint8_t statusReg = getRegisterValue(DS3231_REGISTER_STATUS);
 
 	bool didStop = false;
 	if(statusReg & DS3231_STATUS_OSF_BIT) // oscillator stopped flag set
 	{
 		didStop = true;
 		// now reset the flag
-		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-		i2cWriteThenStop(statusReg & ~(DS3231_STATUS_OSF_BIT));
+		writeValueThenStop(statusReg & ~DS3231_STATUS_OSF_BIT, DS3231_REGISTER_STATUS);
 	}
 
 	return didStop;
@@ -926,15 +836,9 @@ bool ds3231HasOscillatorStopped(void)
 */
 uint8_t ds3231Enable32KHzOutput(void)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t statusReg = i2cReadNak();
-	i2cStop();
+	uint8_t statusReg = getRegisterValue(DS3231_REGISTER_STATUS);
 	if(statusReg & ~DS3231_STATUS_EN32KHZ_BIT) // wasn't enabled, so enable it
-	{
-		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-		i2cWriteThenStop(statusReg | DS3231_STATUS_EN32KHZ_BIT);
-	}
+		writeValueThenStop(statusReg | DS3231_STATUS_EN32KHZ_BIT, DS3231_REGISTER_STATUS);
 
 	return DS3231_OPERATION_SUCCESS;
 }
@@ -945,15 +849,9 @@ uint8_t ds3231Enable32KHzOutput(void)
 */
 uint8_t ds3231Disable32KhzOutput(void)
 {
-	i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-	i2cRepeatStart(DS3231_ADDRESS_READ);
-	uint8_t statusReg = i2cReadNak();
-	i2cStop();
+	uint8_t statusReg = getRegisterValue(DS3231_REGISTER_STATUS);
 	if(statusReg & DS3231_STATUS_EN32KHZ_BIT) // is enabled, so disable it
-	{
-		i2cSetRegisterPointer(DS3231_ADDRESS_WRITE, DS3231_REGISTER_STATUS);
-		i2cWriteThenStop(statusReg & ~DS3231_STATUS_EN32KHZ_BIT);
-	}
+		writeValueThenStop(statusReg & ~DS3231_STATUS_EN32KHZ_BIT, DS3231_REGISTER_STATUS);
 
 	return DS3231_OPERATION_SUCCESS;
 }

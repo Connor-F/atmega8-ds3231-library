@@ -170,19 +170,6 @@ uint8_t i2cWrite(uint8_t data)
 	return 0;
 }
 
-uint8_t i2cWriteThenStop(uint8_t data)
-{
-	i2cWrite(data);
-	i2cStop();
-}
-
-void i2cSetRegisterPointer(uint8_t addr, uint8_t reg)
-{
-	i2cStart(addr);
-	i2cWrite(reg);
-}
-
-
 /*************************************************************************
   Read one byte from the I2C device, request more data from device 
 
