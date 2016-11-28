@@ -12,14 +12,17 @@ int main()
 	DDRB |= (0 << PB0);
 
 	ds3231Use12HourMode(false);
-	ds3231SetSecond(58);
+/*	ds3231SetSecond(58);
 	ds3231SetMinute(59);
 	ds3231SetHour(14, false);
 	ds3231SetDay(THURSDAY);
 	ds3231SetDate(28);
 	ds3231SetMonth(DECEMBER);
 	ds3231SetYear(16);
-	ds3231SetCentury(0); // century 0 = year 20xx
+	ds3231SetCentury(0); // century 0 = year 20xx*/
+
+	ds3231SetTime(14, 59, 58, false);
+	ds3231SetFullDate(THURSDAY, 28, DECEMBER, 16, 0);
 
 	alarm_t alarm;
 	alarm.alarmNumber = ALARM_2;

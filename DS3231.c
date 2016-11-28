@@ -429,7 +429,7 @@ Param: hour -> the hour to set the ds3231 to
 uint8_t ds3231SetTime(uint8_t hour, uint8_t minute, uint8_t second, bool isPM)
 {
 	uint8_t error = DS3231_OPERATION_SUCCESS;
-	error |= ds3231SetHour(hour, isPM); // fix
+	error |= ds3231SetHour(hour, isPM);
 	error |= ds3231SetMinute(minute);
 	error |= ds3231SetSecond(second);
 
@@ -701,7 +701,7 @@ uint8_t ds3231SetSecond(uint8_t seconds)
    allows the seconds value of the ds3231 to be retreived
 	Returns: the seconds value the ds3231 is at currently
 */
-uint8_t ds3231GetSecond()
+uint8_t ds3231GetSecond(void)
 {
 	checkCentury();
 	uint8_t seconds = getRegisterValue(DS3231_REGISTER_SECONDS);
@@ -895,7 +895,7 @@ int8_t ds3231GetAgingOffset(void)
 	Param: val -> the decimal value
 	Returns: the BCD representation of val
 */
-uint8_t decToBcd(uint8_t val)
+static uint8_t decToBcd(uint8_t val)
 {
   return (val / 10 * 16) + (val % 10);
 }
@@ -906,7 +906,7 @@ uint8_t decToBcd(uint8_t val)
 	Param: val -> the BCD value
 	Returns: the standard decimal representation of val
 */
-uint8_t bcdToDec(uint8_t val)
+static uint8_t bcdToDec(uint8_t val)
 {
   return (val / 16 * 10) + (val % 16);
 }

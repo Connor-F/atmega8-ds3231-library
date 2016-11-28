@@ -240,8 +240,8 @@ int8_t ds3231GetAgingOffset(void);
 uint8_t ds3231EnableBBSQW(bbsqw_frequency_t);
 
 // utility functions
-uint8_t decToBcd(uint8_t);
-uint8_t bcdToDec(uint8_t);
+static uint8_t decToBcd(uint8_t);
+static uint8_t bcdToDec(uint8_t);
 uint8_t setRegisterPointer(uint8_t);
 uint8_t getRegisterValue(uint8_t);
 uint8_t writeValueThenStop(uint8_t, uint8_t);
