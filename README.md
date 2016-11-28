@@ -39,7 +39,7 @@ Alternatively the function `ds3231SetFullDate(TUESDAY, 28, NOVEMBER, 16, 0);` ca
 2. The top 8 bits of the value represent the signed integer part of the temperature
 3. The following 2 bits (after the top 8 bits) represent the fractional part of the temperature with the upper bit being the value 0.5 Celcius and the lower bit being 0.25 celcius
 4. Combining the integer and fractional parts of the `uint16_t` give the actual temperature reading
-5. This can be achieved using the `temperature_reader.py` file, you can send the 2 byte returned value (the `uint16_t`) via a serial port to a device running the above python file. The encoded temperature will then be decoded and printed to `stdout`
+5. This can be achieved using the `temperature_reader.py` file, you can send the 2 byte returned value (the `uint16_t`) via a serial port to a device running the above python code. The encoded temperature will then be decoded and printed to `stdout`. `temperature_reader.py` assumes the serial data is incoming on `/dev/ttyUSB0` with a baud rate of 9600, however this can be easily changed in the python code
 
 ##Library Reference
 
