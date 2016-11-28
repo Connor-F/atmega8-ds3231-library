@@ -122,9 +122,7 @@ Returns: DS3231_OPERATION_SUCCESS (0) if everything was ok
 `void ds3231Use12HourMode(bool use12HourMode);`
    **sets the global hour mode for the ds3231. The ds3231 offers 2 modes
    for storing the hours value in the timekeeping registers and alarm registers,
-   these are AM/PM mode (uses 12 hours and a AM/PM indicator bit) and 24 hour mode.
-
-   This should be called before any other if needing to change the mode to AM/PM, as
+   these are AM/PM mode (uses 12 hours and a AM/PM indicator bit) and 24 hour mode. This should be called before any other if needing to change the mode to AM/PM, as
    24 hour mode is selected by default**
 
 `static uint8_t validateAlarm(const alarm_t *alarm);`
@@ -189,7 +187,7 @@ Returns: DS3231_OPERATION_SUCCESS (0) if everything was ok
 
 `static void checkCentury(void);`
    **checks to see if the CENTURY_BIT bit is set in the MONTH register. If it is then a new century has been entered so the currentCentury counter is incremented.
-   This function should be called at the start / end of every other function that interacts with the DS3231, otherwise turning a century will be missed. However if it is unlikely that the DS3231 will experience a change in century, this function can be ignored and removed from the rest of the library code
+   This function should be called at the start / end of every other function that interacts with the DS3231, otherwise turning a century will be missed. However if it is unlikely that the DS3231 will experience a change in century, this function can be ignored and removed from the rest of the library code**
 
 `uint8_t ds3231GetCentury(void);`
 	**Returns: the current century of the DS3231, e.g.
@@ -334,8 +332,8 @@ Returns: DS3231_OPERATION_SUCCESS (0) if everything was ok
 	Param: val -> the decimal value
 	Returns: the BCD representation of val**
 
-`static uint8_t bcdToDec(uint8_t val);`
-   **used to convery binary coded decimal to standard
+**`static uint8_t bcdToDec(uint8_t val);`**
+   used to convery binary coded decimal to standard
    decimal numbers
 	Param: val -> the BCD value
-	Returns: the standard decimal representation of val**
+	Returns: the standard decimal representation of val
