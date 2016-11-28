@@ -10,6 +10,8 @@ The RTC maintains seconds, minutes, hours, day, date, month, and year informatio
 
 The DS3231 should be initialised with data on first use, then the other functions such as setting alarms can be used.
 
+The `example_program.c` file is an example program for setting data and alarms on the DS3231.
+
 ###Initialising the DS3231
 
 1. Before any DS3231 functions are used a call to `initDS3231();` must be made which sets up the `I2C` bus and resets necessary values
