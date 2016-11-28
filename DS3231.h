@@ -207,7 +207,7 @@ month_t ds3231GetMonth(void);
 uint8_t ds3231SetYear(uint8_t);
 uint8_t ds3231GetYear(void);
 
-uint8_t ds3231SetCentury(uint8_t);
+void ds3231SetCentury(uint8_t);
 uint8_t ds3231GetCentury(void);
 
 uint8_t ds3231SetFullDate(day_t, uint8_t, month_t, uint8_t, uint8_t);
@@ -232,14 +232,18 @@ bool ds3231HasOscillatorStopped(void);
 uint8_t ds3231Enable32KHzOutput(void);
 uint8_t ds3231Disable32KhzOutput(void);
 
+// aging offset functions
+uint8_t ds3231SetAgingOffset(int8_t);
+int8_t ds3231GetAgingOffset(void);
+
 // other functions
 uint8_t ds3231EnableBBSQW(bbsqw_frequency_t);
 
 // utility functions
 uint8_t decToBcd(uint8_t);
 uint8_t bcdToDec(uint8_t);
-void setRegisterPointer(uint8_t);
+uint8_t setRegisterPointer(uint8_t);
 uint8_t getRegisterValue(uint8_t);
-void writeValueThenStop(uint8_t, uint8_t);
+uint8_t writeValueThenStop(uint8_t, uint8_t);
 
 #endif

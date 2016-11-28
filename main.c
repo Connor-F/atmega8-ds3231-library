@@ -13,8 +13,8 @@ int main()
 
 	ds3231Use12HourMode(false);
 	ds3231SetSecond(58);
-	ds3231SetMinute(39);
-	ds3231SetHour(13, false);
+	ds3231SetMinute(59);
+	ds3231SetHour(14, false);
 	ds3231SetDay(THURSDAY);
 	ds3231SetDate(28);
 	ds3231SetMonth(DECEMBER);
@@ -36,23 +36,23 @@ int main()
 
 	while(1)
 	{
-		uint16_t temp = ds3231GetTemperature();
+		/*uint16_t temp = ds3231GetTemperature();
 		usartTransmitByte((uint8_t) (temp >> 8));
-		usartTransmitByte((uint8_t) temp);
-		//usartTransmitByte(ds3231GetSecond());
-		/*usartTransmitByte(ds3231GetMinute());
+		usartTransmitByte((uint8_t) temp);*/
+		usartTransmitByte(ds3231GetSecond());
+		usartTransmitByte(ds3231GetMinute());
 		usartTransmitByte(ds3231GetHour());
 		usartTransmitByte((uint8_t) ds3231GetDay());
 		usartTransmitByte(ds3231GetDate());
 		usartTransmitByte((uint8_t) ds3231GetMonth());
 		usartTransmitByte(ds3231GetYear());
-		usartTransmitByte(ds3231GetCentury());*/
+		usartTransmitByte(ds3231GetCentury());
 
-		ds3231ForceTemperatureUpdate();
+		/*ds3231ForceTemperatureUpdate();
 		_delay_ms(300);
 		temp = ds3231GetTemperature();
 		usartTransmitByte((uint8_t) (temp >> 8));
-		usartTransmitByte((uint8_t) temp);
+		usartTransmitByte((uint8_t) temp);*/
 
 
 		/*if(PINB & (1 << PB0))

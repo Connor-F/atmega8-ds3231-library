@@ -18,11 +18,18 @@ void initDS3231(void)
    utility function to set the register pointer on
    the ds3231
 	Param: reg -> the register to be pointed at by the register pointer
+	Returns: DS3231_OPERATION_SUCCESS (0) on success
+			 1 if the register provided was invalid
 */
-void setRegisterPointer(uint8_t reg)
+uint8_t setRegisterPointer(uint8_t reg)
 {
+	if(reg < DS3231_REGISTER_SECONDS || reg > DS3231_REGISTER_TEMPERATURE_LSB)
+		return 1;
+
 	i2cStart(DS3231_ADDRESS_WRITE);
 	i2cWrite(reg);
+
+	return DS3231_OPERATION_SUCCESS;
 }
 
 /*
@@ -45,12 +52,19 @@ uint8_t getRegisterValue(uint8_t reg)
    ds3231
 	Param: value -> the value to write to the register
 		   reg -> the register to write the value to
+    Returns: DS3231_OPERATION_SUCCESS (0) on success
+	         1 if the register provided was out of range
 */
-void writeValueThenStop(uint8_t value, uint8_t reg)
+uint8_t writeValueThenStop(uint8_t value, uint8_t reg)
 {
+	if(reg < DS3231_REGISTER_SECONDS || reg > DS3231_REGISTER_TEMPERATURE_LSB)
+		return 1;
+
 	setRegisterPointer(reg);
 	i2cWrite(value);
 	i2cStop();
+
+	return DS3231_OPERATION_SUCCESS;
 }
 
 /*
@@ -472,7 +486,7 @@ uint8_t ds3231GetCentury(void)
    Sets the starting century for the DS3231. The DS3231 doesn't store the century
    itself, so the library handles it
 */
-uint8_t ds3231SetCentury(uint8_t cent)
+void ds3231SetCentury(uint8_t cent)
 {
 	century = cent;
 }
@@ -854,6 +868,26 @@ uint8_t ds3231Disable32KhzOutput(void)
 		writeValueThenStop(statusReg & ~DS3231_STATUS_EN32KHZ_BIT, DS3231_REGISTER_STATUS);
 
 	return DS3231_OPERATION_SUCCESS;
+}
+
+/*
+   allows the aging offset register value to be set
+	Param: offset -> the value to set the aging offset register to
+	Returns: DS3231_OPERATION_SUCCESS (0)
+*/
+uint8_t ds3231SetAgingOffset(int8_t offset)
+{
+	writeValueThenStop(offset, DS3231_REGISTER_AGING_OFFSET);
+	return DS3231_OPERATION_SUCCESS;
+}
+
+/*
+   allows the aging offset register to be read
+	Returns: the signed value stored in the aging offset register
+*/
+int8_t ds3231GetAgingOffset(void)
+{
+	return getRegisterValue(DS3231_REGISTER_AGING_OFFSET);
 }
 
 /*
