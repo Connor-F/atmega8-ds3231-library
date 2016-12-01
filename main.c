@@ -19,19 +19,19 @@ int main()
 	ds3231SetDate(28);
 	ds3231SetMonth(DECEMBER);
 	ds3231SetYear(16);
-	ds3231SetCentury(0); // century 0 = year 20xx*/
+	ds3231SetCentury(21); // century 21 = year 20xx*/
 
-	ds3231SetTime(14, 59, 58, false);
-	ds3231SetFullDate(THURSDAY, 28, DECEMBER, 16, 0);
+//	ds3231SetTime(14, 59, 58, false);
+	//ds3231SetFullDate(THURSDAY, 28, DECEMBER, 16, 21);
 
 	alarm_t alarm;
-	alarm.alarmNumber = ALARM_2;
+	alarm.alarmNumber = ALARM_1;
 	//alarm.second = 2;
 	alarm.minute = 40;
 	alarm.hour = 13;
 	alarm.useDay = false;
 	alarm.dayDate = 28;
-	alarm.trigger = A2_DAY_DATE_HOUR_MIN_MATCH;
+	alarm.trigger = A1_EVERY_SEC;
 
 	uint8_t err = ds3231SetAlarm(&alarm);
 	if(err)
@@ -43,13 +43,13 @@ int main()
 		usartTransmitByte((uint8_t) (temp >> 8));
 		usartTransmitByte((uint8_t) temp);*/
 		usartTransmitByte(ds3231GetSecond());
-		usartTransmitByte(ds3231GetMinute());
+		/*usartTransmitByte(ds3231GetMinute());
 		usartTransmitByte(ds3231GetHour());
 		usartTransmitByte((uint8_t) ds3231GetDay());
 		usartTransmitByte(ds3231GetDate());
 		usartTransmitByte((uint8_t) ds3231GetMonth());
 		usartTransmitByte(ds3231GetYear());
-		usartTransmitByte(ds3231GetCentury());
+		usartTransmitByte(ds3231GetCentury());*/
 
 		/*ds3231ForceTemperatureUpdate();
 		_delay_ms(300);
@@ -58,15 +58,15 @@ int main()
 		usartTransmitByte((uint8_t) temp);*/
 
 
-		/*if(PINB & (1 << PB0))
+		if(PINB & (1 << PB0))
 		{
 			continue;
 		}
 		else // pin is low (therefore ds3231 alarm triggered)
 		{
 			usartTransmitByte(65);
-			ds3231ClearAlarmFlag(ALARM_2);
-		}*/
+			ds3231ClearAlarmFlag(ALARM_1);
+		}
 	}
 
 	return 0;

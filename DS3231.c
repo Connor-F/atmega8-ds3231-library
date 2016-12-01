@@ -474,7 +474,7 @@ static void checkCentury(void)
 
 /*
 	Returns: the current century of the DS3231, e.g.
-		     0 = 20xx, 1 = 21xx etc.
+		     21 = 20xx, 22 = 21xx etc.
 */
 uint8_t ds3231GetCentury(void)
 {
@@ -813,6 +813,8 @@ void ds3231ForceTemperatureUpdate(void)
    which is +25
    And the following 2 bits (01) are the fractional part of the temperature, which is 0.25
    So the tempreature read was +25.25
+	NOTE: the ds3231 has a valid temperature reading at around 2 seconds after first powering on,
+	reading the temperature before this will likely lead to an incorrect result
 		Returns: encoded 10 bit temperature value
 */
 uint16_t ds3231GetTemperature(void)

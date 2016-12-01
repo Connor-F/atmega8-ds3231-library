@@ -173,7 +173,7 @@ typedef enum
 // Global variables                                           //
 ////////////////////////////////////////////////////////////////
 // used to track the century
-static uint8_t century = 0; // year 20xx has a century of 0
+static uint8_t century = 21; // year 20xx has a century of 21
 // used to indicate the hour storing mode, either AM/PM (12 hour mode) or 24 hour mode
 static bool is24HourMode = true;
 

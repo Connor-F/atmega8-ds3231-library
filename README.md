@@ -21,18 +21,18 @@ The `example_program.c` file is an example program for setting data and alarms o
 `ds3231SetSecond(5);` and `ds3231SetDay(MONDAY);` etc.
 Instead of calling each set time function seperately, the function `ds3231SetTime(hour, min, second, isPM);` can be called to set the time in a single line. For example, 
 `ds3231SetTime(14, 2, 47, false);`. This sets the time to 14:02:47 (24 hour).
-4. Day, date, month, year and century should be given values next. This can be done using the appropriate `ds3231Set` functions, e.g. `ds3231SetMonth(DECEMBER);`. Alternatively the function `ds3231SetFullDate(TUESDAY, 28, NOVEMBER, 16, 0);` can be used to set the full date in a single line
+4. Day, date, month, year and century should be given values next. This can be done using the appropriate `ds3231Set` functions, e.g. `ds3231SetMonth(DECEMBER);`. Alternatively the function `ds3231SetFullDate(TUESDAY, 28, NOVEMBER, 16, 21);` can be used to set the full date in a single line
 
 ###Using DS3231 alarms
+
+####Important: The `INTCN/SQW` pin requires an external pull-up resistor to force the pin HIGH, it then pulls the pin LOW to indicate a triggered alarm
 
 1. Create an `alarm_t` object (referred to as `alarm` in these steps) and provide values to the necessary fields in the object. For example if you wanted to set an alarm to trigger every time the seconds value of the DS3231 hit `3` then the necessary fields in the `alarm_t` object would be
 `alarm.second = 3;`
 `alarm.trigger = A1_SEC_MATCH; // set the alarm to go off when the seconds value in 
 // `alarm` match the seconds value held by the DS3231`
 2. Set the alarm using `ds3231SetAlarm(&alarm);`. Making sure to check the return value to see if the alarm provide had a valid combination, e.g. the second alarm of the DS3231 does not have a seconds register, therefore setting the second alarm to trigger on a seconds match is invalid
-3. Once an alarm is triggered, the DS3231 pulls the `INTCN/SQW` pin LOW, which can be detected by the AVR. When this happens, a call to `ds3231ClearAlarmFlag(alarm_number_t);` should be called to stop the DS3231 from continually triggering the alarm and holding the line LOW. For example, if the first alarm was triggered then calling
-
-`ds3231ClearAlarmFlag(ALARM_1);` would stop the DS3231 from signalling an alarm for the first alarm
+3. Once an alarm is triggered, the DS3231 pulls the `INTCN/SQW` pin LOW, which can be detected by the AVR. When this happens, a call to `ds3231ClearAlarmFlag(alarm_number_t);` should be called to stop the DS3231 from continually triggering the alarm and holding the line LOW. For example, if the first alarm was triggered then calling `ds3231ClearAlarmFlag(ALARM_1);` would stop the DS3231 from signalling an alarm for the first alarm
 
 ###Reading the DS3231 Temperature Sensor
 1. Call the `ds3231GetTemperature();` function to retreive a `uint16_t` encoded temperature value
@@ -190,7 +190,7 @@ Returns: DS3231_OPERATION_SUCCESS (0) if everything was ok
 
 **`uint8_t ds3231GetCentury(void);`**
 	Returns: the current century of the DS3231, e.g.
-		     0 = 20xx, 1 = 21xx etc.
+		     21 = 20xx, 22 = 21xx etc.
 
 **`void ds3231SetCentury(uint8_t cent);`**
    Sets the starting century for the DS3231. The DS3231 doesn't store the century
